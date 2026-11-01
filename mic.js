@@ -4,11 +4,11 @@
   var core = document.getElementById('core');
   if (!go || !inp) return;
 
-  var THRESH = 0.04;      // volume minimo para considerar voz
-  var START_MS = 200;     // voz sustentada para valer
-  var SILENCE_MS = 900;   // silencio que encerra o trecho
-  var MIN_MS = 600;       // trecho minimo
-  var MAX_MS = 12000;     // trecho maximo
+  var THRESH = 0.04;
+  var START_MS = 200;
+  var SILENCE_MS = 900;
+  var MIN_MS = 600;
+  var MAX_MS = 12000;
   var RX = /j[aáe]r?[vb][iíe][sz]/i;
 
   var btn = document.createElement('button');
@@ -22,11 +22,12 @@
   var timer = null, lock = null, mimeType = '';
   var rec = null, recording = false, recStart = 0, lastLoud = 0, sustained = false;
   var pending = 0, wake = false, wakeTimer = null;
-  var st = 'OUVINDO', last = '', shown = '';
+  var st = 'OUVINDO', last = '', shown = '', tm = '';
 
   function show(s) {
     if (s) st = s;
-    var t = on ? ('MIC: ' + st + (last ? ' | ' + last : '')) : 'MIC: OFF' + (last ? ' | ' + last : '');
+    var extra = (last ? ' | ' + last : '') + (tm ? ' [' + tm + ']' : '');
+    var t = on ? ('MIC: ' + st + extra) : 'MIC: OFF' + extra;
     if (t !== shown) { shown = t; btn.textContent = t; }
   }
 
@@ -85,6 +86,7 @@
       var pin = '';
       try { pin = getPin() || ''; } catch (e) {}
       pending++;
+      var t0 = Date.now();
       fetch('/api/listen', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -95,11 +97,13 @@
         })
         .then(function (x) {
           pending--;
+          tm = ((Date.now() - t0) / 1000).toFixed(1) + 's';
           if (!x.ok) { last = 'ERRO: ' + ((x.d && x.d.error) || '?').slice(0, 40); show(); return; }
           handle(x.d.text);
         })
         .catch(function () {
           pending--;
+          tm = ((Date.now() - t0) / 1000).toFixed(1) + 's';
           last = 'ERRO DE REDE';
           show();
         });
@@ -199,6 +203,7 @@
       }
       on = true;
       last = '';
+      tm = '';
       st = 'OUVINDO';
       timer = setInterval(tick, 50);
       getLock();
@@ -220,6 +225,7 @@
     stream = null; ctx = null; analyser = null; lock = null;
     wakeOff();
     last = '';
+    tm = '';
     show();
   }
 
