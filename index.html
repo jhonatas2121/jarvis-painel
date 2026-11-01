@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>J.A.R.V.I.S.</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#020b14;--cy:#38e8ff;--cy2:#1b8fa8;--dim:#0f3a4a;--tx:#bff3ff;--am:#ffb347;--pn:rgba(56,232,255,.05);
+color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 40%,#06222f 0%,var(--bg) 70%);color:var(--tx);font-family:Rajdhani,"Segoe UI",system-ui,sans-serif;font-size:16px;overflow-x:hidden}
+h2,.big{font-family:Orbitron,"Arial Narrow",sans-serif;font-weight:500;letter-spacing:.12em}
+.grid{display:grid;grid-template-columns:1fr minmax(260px,420px) 1fr;gap:16px;padding:16px;max-width:1200px;margin:0 auto}
+.panel{border:1px solid var(--dim);background:var(--pn);padding:14px;position:relative;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.panel h2{margin:0 0 10px;font-size:12px;color:var(--cy)}
+.col{display:flex;flex-direction:column;gap:16px}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+svg.reactor{width:100%;max-width:380px;filter:drop-shadow(0 0 18px rgba(56,232,255,.45))}
+.r1{transform-origin:200px 200px;animation:spin 24s linear infinite}
+.r2{transform-origin:200px 200px;animation:spin 14s linear infinite reverse}
+.r3{transform-origin:200px 200px;animation:spin 40s linear infinite}
+.core{animation:pulse 3s ease-in-out infinite;transform-origin:200px 200px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{opacity:.55}}
+.greet{font-size:13px;color:var(--cy);text-align:center;min-height:2.6em}
+.big{font-size:34px;color:var(--cy);text-shadow:0 0 12px rgba(56,232,255,.6);margin:0}
+.date{color:var(--cy2);letter-spacing:.08em}
+.gauge{margin:10px 0}
+.gauge .row{display:flex;justify-content:space-between;font-size:14px}
+.bar{height:6px;background:var(--dim);margin-top:4px}
+.bar i{display:block;height:100%;background:var(--cy);box-shadow:0 0 8px var(--cy);width:50%;transition:width .8s}
+.bar i.warn{background:var(--am);box-shadow:0 0 8px var(--am)}
+canvas{width:100%;height:70px;display:block}
+.log{font-size:14px;height:150px;overflow:hidden;color:var(--cy2);display:flex;flex-direction:column;justify-content:flex-end}
+.log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log b{color:var(--tx);font-weight:600}
+.cmd{grid-column:1/-1;display:flex;gap:8px;border:1px solid var(--dim);padding:8px;background:var(--pn)}
+.cmd input{flex:1;background:transparent;border:0;color:var(--tx);font:inherit;font-size:17px;outline:none;min-width:0}
+.cmd button{background:transparent;color:var(--cy);border:1px solid var(--cy2);font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:.1em;padding:8px 14px;cursor:pointer}
+.cmd button:hover,.cmd button:focus-visible{background:var(--cy);color:var(--bg);outline:none}
+.reply{grid-column:1/-1;min-height:2.6em;color:var(--cy);font-size:17px}
+.ok{color:#6dffb0}
+.grid{position:relative;z-index:1}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:linear-gradient(rgba(56,232,255,.04) 1px,transparent 1px) 0 0/100% 4px,linear-gradient(90deg,rgba(56,232,255,.035) 1px,transparent 1px) 0 0/48px 100%}
+body::after{content:"";position:fixed;left:0;right:0;top:-20%;height:20%;pointer-events:none;z-index:0;background:linear-gradient(transparent,rgba(56,232,255,.07),transparent);animation:scan 7s linear infinite}
+@keyframes scan{to{top:110%}}
+.panel{box-shadow:inset 0 0 24px rgba(56,232,255,.06)}
+.panel::before{content:"";position:absolute;left:0;top:0;width:18px;height:18px;border-left:2px solid var(--cy);border-top:2px solid var(--cy)}
+.panel h2{text-shadow:0 0 8px var(--cy)}
+.cmd{order:-2;border-color:var(--cy2);box-shadow:0 0 18px rgba(56,232,255,.25),inset 0 0 12px rgba(56,232,255,.08)}
+.cmd::before{content:"▸";color:var(--cy);align-self:center;padding-left:4px}
+.reply{order:-1;white-space:pre-wrap;border:1px solid var(--dim);border-left:3px solid var(--cy);padding:12px 14px;background:linear-gradient(90deg,rgba(56,232,255,.08),transparent);max-height:240px;overflow:auto;line-height:1.35;text-shadow:0 0 8px rgba(56,232,255,.35)}
+.reply.busy{animation:pulse 1s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){body::after,.reply.busy{animation:none}}
+.aff{grid-column:1/-1}
+.aff-form{display:grid;grid-template-columns:2fr 3fr 1fr 1fr auto;gap:8px;margin-bottom:12px}
+.aff-form input{background:transparent;border:1px solid var(--dim);color:var(--tx);font:inherit;padding:8px;min-width:0}
+.aff-form input:focus-visible{border-color:var(--cy);outline:none}
+.aff-form button,.aff-row button{background:transparent;color:var(--cy);border:1px solid var(--cy2);font-family:Orbitron,sans-serif;font-size:11px;letter-spacing:.08em;padding:8px 12px;cursor:pointer}
+.aff-form button:hover,.aff-row button:hover,.aff-form button:focus-visible,.aff-row button:focus-visible{background:var(--cy);color:var(--bg);outline:none}
+.aff-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--dim)}
+.aff-row a{color:var(--cy);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aff-row small{display:block;color:var(--cy2)}
+.aff-tot{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:6px;color:var(--cy2)}
+.aff-tot b{color:var(--tx);font-family:Orbitron,sans-serif;font-weight:500}
+@media(max-width:860px){.grid{grid-template-columns:1fr}.center{order:-1}.cmd{order:-3}.reply{order:-2}.aff-form{grid-template-columns:1fr 1fr}.aff-form input:nth-child(2){grid-column:1/-1}.aff-row{grid-template-columns:1fr 1fr 1fr}.aff-row>:first-child{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.r1,.r2,.r3,.core{animation:none}}
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="col">
+    <div class="panel"><h2>SISTEMAS</h2>
+      <div class="gauge"><div class="row"><span>Processamento</span><span id="v0">0%</span></div><div class="bar"><i id="b0"></i></div></div>
+      <div class="gauge"><div class="row"><span>Memória</span><span id="v1">0%</span></div><div class="bar"><i id="b1"></i></div></div>
+      <div class="gauge"><div class="row"><span>Reator de arco</span><span id="v2">0%</span></div><div class="bar"><i id="b2"></i></div></div>
+      <div class="gauge"><div class="row"><span>Escudos</span><span id="v3">0%</span></div><div class="bar"><i id="b3"></i></div></div>
+    </div>
+    <div class="panel"><h2>REDE</h2><canvas id="net" width="300" height="70"></canvas><div class="date" id="netv">0 Mb/s</div></div>
+  </div>
+
+  <div class="center">
+    <svg class="reactor" viewBox="0 0 400 400" aria-label="Reator de arco">
+      <g fill="none" stroke="#38e8ff">
+        <circle cx="200" cy="200" r="190" stroke-opacity=".25"/>
+        <g class="r3"><circle cx="200" cy="200" r="175" stroke-width="6" stroke-dasharray="2 14" stroke-opacity=".7"/></g>
+        <g class="r1"><circle cx="200" cy="200" r="150" stroke-width="10" stroke-dasharray="90 30 20 30" stroke-opacity=".8"/></g>
+        <g class="r2"><circle cx="200" cy="200" r="118" stroke-width="3" stroke-dasharray="40 12"/></g>
+        <circle cx="200" cy="200" r="92" stroke-width="2" stroke-opacity=".6"/>
+        <g stroke-width="8" stroke-opacity=".85">
+          <path d="M200 120 L200 150"/><path d="M200 250 L200 280"/><path d="M120 200 L150 200"/><path d="M250 200 L280 200"/>
+          <path d="M143 143 L164 164"/><path d="M236 236 L257 257"/><path d="M257 143 L236 164"/><path d="M164 236 L143 257"/>
+        </g>
+        <circle cx="200" cy="200" r="52" stroke-width="3"/>
+      </g>
+      <circle class="core" cx="200" cy="200" r="38" fill="#38e8ff" fill-opacity=".25" stroke="#bff3ff" stroke-width="2"/>
+      <circle class="core" cx="200" cy="200" r="16" fill="#e8fdff"/>
+    </svg>
+    <p class="big" id="clock">00:00:00</p>
+    <div class="date" id="date"></div>
+    <div class="greet" id="greet"></div>
+  </div>
+
+  <div class="col">
+    <div class="panel"><h2>DIAGNÓSTICO</h2>
+      <div class="gauge"><div class="row"><span>Armadura Mark</span><span class="ok">ONLINE</span></div></div>
+      <div class="gauge"><div class="row"><span>Propulsores</span><span class="ok">PRONTOS</span></div></div>
+      <div class="gauge"><div class="row"><span>Temperatura do núcleo</span><span id="temp">0 °C</span></div></div>
+      <div class="gauge"><div class="row"><span>Alertas</span><span id="alerts" style="color:var(--am)">0</span></div></div>
+    </div>
+    <div class="panel"><h2>REGISTRO</h2><div class="log" id="log"></div></div>
+  </div>
+
+  <div class="panel aff"><h2>AFILIADOS SHOPEE</h2>
+    <div class="aff-tot"><span>Cliques <b id="tc">0</b></span><span>Vendas <b id="ts">0</b></span><span>Comissão estimada <b id="tm">R$ 0,00</b></span></div>
+    <div class="aff-form">
+      <input id="an" placeholder="Nome do produto" aria-label="Nome do produto">
+      <input id="al" placeholder="Link de afiliado (https://…)" aria-label="Link de afiliado">
+      <input id="ap" type="number" min="0" step="0.01" placeholder="Preço R$" aria-label="Preço">
+      <input id="ac" type="number" min="0" max="100" step="0.1" placeholder="Comissão %" aria-label="Comissão em porcentagem">
+      <button id="aa" type="button">ADICIONAR</button>
+    </div>
+    <div id="al-list"></div>
+  </div>
+  <div class="reply" id="reply">Pergunte qualquer coisa. Eu pesquiso na web e respondo usando o Claude.</div>
+  <div class="cmd">
+    <input id="in" placeholder="Pesquise ou pergunte ao JARVIS…" autocomplete="off" aria-label="Comando">
+    <button id="go" type="button">ENVIAR</button>
+  </div>
+</div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+var days=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+var months=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+function p(n){return String(n).padStart(2,"0")}
+function saud(h){return h<5?"Boa madrugada":h<12?"Bom dia":h<18?"Boa tarde":"Boa noite"}
+function tick(){
+  var d=new Date();
+  $("clock").textContent=p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+  $("date").textContent=days[d.getDay()]+", "+d.getDate()+" de "+months[d.getMonth()]+" de "+d.getFullYear();
+  $("greet").textContent=saud(d.getHours())+", senhor. Todos os sistemas operando normalmente.";
+}
+tick();setInterval(tick,1000);
+
+var vals=[34,52,98,100];
+function gauges(){
+  vals[0]=Math.max(8,Math.min(96,vals[0]+(Math.random()-.5)*22));
+  vals[1]=Math.max(20,Math.min(92,vals[1]+(Math.random()-.5)*8));
+  vals[2]=Math.max(92,Math.min(100,vals[2]+(Math.random()-.5)*3));
+  vals[3]=Math.max(90,Math.min(100,vals[3]+(Math.random()-.5)*2));
+  for(var i=0;i<4;i++){
+    var v=Math.round(vals[i]);
+    $("v"+i).textContent=v+"%";$("b"+i).style.width=v+"%";
+    $("b"+i).className=(i<2&&v>80)?"warn":"";
+  }
+  $("temp").textContent=Math.round(41+vals[0]*.25)+" °C";
+}
+gauges();setInterval(gauges,1500);
+
+var pts=[];for(var i=0;i<60;i++)pts.push(30);
+var cv=$("net"),cx=cv.getContext("2d");
+function net(){
+  pts.push(Math.max(5,Math.min(95,pts[pts.length-1]+(Math.random()-.5)*30)));pts.shift();
+  var w=cv.width,h=cv.height;cx.clearRect(0,0,w,h);
+  cx.strokeStyle="#0f3a4a";cx.lineWidth=1;
+  for(var g=1;g<4;g++){cx.beginPath();cx.moveTo(0,g*h/4);cx.lineTo(w,g*h/4);cx.stroke()}
+  cx.strokeStyle="#38e8ff";cx.lineWidth=2;cx.shadowColor="#38e8ff";cx.shadowBlur=8;cx.beginPath();
+  pts.forEach(function(v,k){var x=k*w/(pts.length-1),y=h-v*h/100;k?cx.lineTo(x,y):cx.moveTo(x,y)});
+  cx.stroke();cx.shadowBlur=0;
+  $("netv").textContent=Math.round(pts[pts.length-1]*9.4)+" Mb/s";
+}
+net();setInterval(net,700);
+
+var msgs=["Varredura de perímetro concluída","Sincronizando com o satélite","Reator de arco estável","Atualizando banco de dados","Link seguro estabelecido","Calibrando sensores","Nenhuma ameaça detectada","Backup da oficina concluído"];
+var log=$("log");
+function addLog(t){
+  var d=new Date(),e=document.createElement("div");
+  e.innerHTML="<b>"+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())+"</b> "+t;
+  log.appendChild(e);while(log.children.length>7)log.removeChild(log.firstChild);
+}
+addLog("JARVIS inicializado");
+setInterval(function(){addLog(msgs[Math.floor(Math.random()*msgs.length)]);$("alerts").textContent=Math.random()<.15?"1":"0"},2600);
+
+function answer(q){
+  q=q.toLowerCase();var d=new Date();
+  if(/ajuda|help|comandos/.test(q))return "Comandos: hora, data, status, olá, protocolo festa, modo furtivo.";
+  if(/hora/.test(q))return "São "+p(d.getHours())+":"+p(d.getMinutes())+", senhor.";
+  if(/data|dia/.test(q))return "Hoje é "+days[d.getDay()]+", "+d.getDate()+" de "+months[d.getMonth()]+".";
+  if(/status|sistema/.test(q))return "Processamento em "+Math.round(vals[0])+"%, reator em "+Math.round(vals[2])+"%. Tudo em ordem.";
+  if(/ol[aá]|oi|jarvis/.test(q))return saud(d.getHours())+", senhor. Em que posso ajudar?";
+  if(/festa/.test(q)){document.body.style.filter="hue-rotate(150deg)";setTimeout(function(){document.body.style.filter=""},4000);return "Protocolo Festa ativado. Espero que saiba o que está fazendo, senhor."}
+  if(/furtivo|stealth/.test(q)){document.body.style.opacity=".5";setTimeout(function(){document.body.style.opacity=""},4000);return "Modo furtivo ativado por 4 segundos."}
+  return "Não reconheci esse comando. Diga “ajuda”.";
+}
+function send(){
+  var v=$("in").value.trim();if(!v)return;
+  $("reply").textContent=answer(v);addLog("Comando: "+v.replace(/</g,"&lt;"));$("in").value="";
+}
+var AK="jarvis-afiliados",items=[];
+function brl(n){return n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
+try{items=JSON.parse(localStorage.getItem(AK)||"[]")}catch(e){items=[]}
+if(!Array.isArray(items))items=[];
+function saveAff(){try{localStorage.setItem(AK,JSON.stringify(items))}catch(e){}}
+function renderAff(){
+  var box=$("al-list");box.textContent="";var tc=0,ts=0,tm=0;
+  if(!items.length){var h=document.createElement("div");h.className="date";h.textContent="Nenhum produto ainda. Cole o link de afiliado acima e toque em adicionar.";box.appendChild(h)}
+  items.forEach(function(it,i){
+    tc+=it.clicks;ts+=it.sales;tm+=it.sales*it.price*it.pct/100;
+    var r=document.createElement("div");r.className="aff-row";
+    var a=document.createElement("a");a.textContent=it.name;a.target="_blank";a.rel="noopener noreferrer";
+    if(/^https?:\/\//i.test(it.link))a.href=it.link;
+    var c1=document.createElement("span");c1.textContent=brl(it.price);
+    var c2=document.createElement("span");c2.textContent=it.pct+"% por venda";
+    var c3=document.createElement("span");c3.textContent=it.clicks+" cliques";
+    var c4=document.createElement("span");c4.textContent=it.sales+" vendas";
+    function b(t,fn){var x=document.createElement("button");x.type="button";x.textContent=t;x.onclick=function(){fn();saveAff();renderAff()};return x}
+    r.append(a,c1,c2,c3,c4,b("+ CLIQUE",function(){it.clicks++}),b("+ VENDA",function(){it.sales++}),b("REMOVER",function(){items.splice(i,1)}));
+    box.appendChild(r);
+  });
+  $("tc").textContent=tc;$("ts").textContent=ts;$("tm").textContent=brl(tm);
+}
+$("aa").onclick=function(){
+  var n=$("an").value.trim(),l=$("al").value.trim(),pr=parseFloat($("ap").value)||0,pc=parseFloat($("ac").value)||0;
+  if(!n||!/^https?:\/\//i.test(l)){$("reply").textContent="Informe o nome do produto e um link que comece com https://.";return}
+  items.push({name:n,link:l,price:pr,pct:pc,clicks:0,sales:0});saveAff();renderAff();
+  ["an","al","ap","ac"].forEach(function(k){$(k).value=""});addLog("Produto afiliado adicionado");
+};
+renderAff();
+var _ans=answer;
+answer=function(q){
+  if(/afiliad|comiss|shopee/i.test(q)){
+    var c=0,s=0,m=0;items.forEach(function(it){c+=it.clicks;s+=it.sales;m+=it.sales*it.price*it.pct/100});
+    return items.length+" produtos, "+c+" cliques, "+s+" vendas. Comissão estimada: "+brl(m)+".";
+  }
+  return _ans(q);
+};
+var busy=false;
+function getPin(){var p="";try{p=sessionStorage.getItem("jv-pin")||""}catch(e){}
+  if(!p){p=prompt("PIN de acesso do JARVIS (deixe vazio se não configurou):")||"";try{sessionStorage.setItem("jv-pin",p)}catch(e){}}
+  return p}
+send=function(){
+  var v=$("in").value.trim();if(!v)return;$("in").value="";
+  addLog("Consulta: "+v.replace(/</g,"&lt;"));
+  var R=$("reply");
+  if(/^(ajuda|help|comandos|hora|data|status|ol[a\u00e1]|oi|protocolo festa|modo furtivo|afiliados)$/i.test(v)){R.textContent=answer(v);return}
+  if(busy)return;busy=true;R.textContent="Pesquisando\u2026";R.classList.add("busy");
+  fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:v,pin:getPin()})})
+    .then(function(r){return r.json()})
+    .then(function(d){R.textContent=d.text||d.error||"Sem resposta.";if(d.error==="PIN incorreto."){try{sessionStorage.removeItem("jv-pin")}catch(e){}}})
+    .catch(function(){R.textContent="Não consegui consultar agora. Tente de novo."})
+    .finally(function(){busy=false;R.classList.remove("busy")});
+};
+$("go").onclick=send;
+$("in").addEventListener("keydown",function(e){if(e.key==="Enter")send()});
+</script>
+</body>
+</html>
