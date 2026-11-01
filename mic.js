@@ -9,7 +9,7 @@ b.className="b";b.id="mic";b.type="button";b.textContent="MIC";
 go.parentNode.insertBefore(b,go);
 if(!SR){b.textContent="MIC: sem suporte";return;}
 var rec=new SR();
-rec.lang="pt-BR";rec.continuous=true;rec.interimResults=true;
+rec.lang="pt-BR";rec.continuous=false;rec.interimResults=false;
 var want=true,on=false,awake=false,blocked=false,hold=false,quiet=0,timer=null;
 function speaking(){
 try{if(window.curAudio&&!window.curAudio.paused)return true;}catch(e){}
@@ -35,12 +35,12 @@ if(e.error==="not-allowed"||e.error==="service-not-allowed"){
 want=false;blocked=true;b.textContent="MIC: toque";
 }
 };
-  rec.addEventListener("error",function(e){window.lastErr=e.error;});
+rec.addEventListener("error",function(e){window.lastErr=e.error;});
 rec.addEventListener("speechstart",function(){window.lastErr="speechstart";});
 rec.addEventListener("nomatch",function(){window.lastErr="nomatch";});
 rec.addEventListener("start",function(){b.textContent="MIC: ON "+(window.lastErr||"");});
 rec.onresult=function(e){
-  b.textContent=(speaking()?"[fala] ":"")+"OUVI: "+e.results[e.results.length-1][0].transcript.slice(0,25);
+b.textContent=(speaking()?"[fala] ":"")+"OUVI: "+e.results[e.results.length-1][0].transcript.slice(0,25);
 if(speaking())return;
 var t=e.results[e.results.length-1][0].transcript.trim();
 if(!t)return;
