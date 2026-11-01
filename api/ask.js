@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: "Você é o JARVIS, assistente do painel de um usuário brasileiro que trabalha com afiliados da Shopee. Responda em português, de forma direta e elegante, em no máximo 8 frases. Use a busca na web quando a pergunta depender de informação atual." }] },
         contents: [{ role: "user", parts: [{ text: q }] }],
-        tools: [{ google_search: {} }]
+        ...(process.env.GEMINI_SEARCH === "off" ? {} : { tools: [{ google_search: {} }] })
       })
     });
     const d = await r.json();
