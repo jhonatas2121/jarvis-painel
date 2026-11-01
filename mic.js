@@ -36,6 +36,7 @@ want=false;blocked=true;b.textContent="MIC: toque";
 }
 };
 rec.onresult=function(e){
+  b.textContent=(speaking()?"[fala] ":"")+"OUVI: "+e.results[e.results.length-1][0].transcript.slice(0,25);
 if(speaking())return;
 var t=e.results[e.results.length-1][0].transcript.trim();
 if(!t)return;
