@@ -9,7 +9,7 @@ b.className="b";b.id="mic";b.type="button";b.textContent="MIC";
 go.parentNode.insertBefore(b,go);
 if(!SR){b.textContent="MIC: sem suporte";return;}
 var rec=new SR();
-rec.lang="pt-BR";rec.continuous=true;rec.interimResults=false;
+rec.lang="pt-BR";rec.continuous=true;rec.interimResults=true;
 var want=true,on=false,awake=false,blocked=false,hold=false,quiet=0,timer=null;
 function speaking(){
 try{if(window.curAudio&&!window.curAudio.paused)return true;}catch(e){}
