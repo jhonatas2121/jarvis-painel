@@ -1,88 +1,239 @@
-(function(){
-var go=document.getElementById("go");
-var box=document.getElementById("in");
-var core=document.getElementById("core");
-var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(!go||!box)return;
-var b=document.createElement("button");
-b.className="b";b.id="mic";b.type="button";b.textContent="MIC";
-go.parentNode.insertBefore(b,go);
-if(!SR){b.textContent="MIC: sem suporte";return;}
-var rec=new SR();
-rec.lang="pt-BR";rec.continuous=false;rec.interimResults=false;
-var want=true,on=false,awake=false,blocked=false,hold=false,quiet=0,timer=null;
-function speaking(){
-try{if(window.curAudio&&!window.curAudio.paused)return true;}catch(e){}
-try{if(window.speechSynthesis&&speechSynthesis.speaking)return true;}catch(e){}
-return false;
-}
-function sleep(){awake=false;clearTimeout(timer);if(core)core.classList.remove("think");}
-function wake(){
-awake=true;if(core)core.classList.add("think");
-clearTimeout(timer);timer=setTimeout(sleep,8000);
-}
-function pause(){hold=true;quiet=0;b.textContent="MIC: PAUSA";try{rec.abort();}catch(e){}}
-function start(){if(!want||on||hold)return;try{rec.start();}catch(e){}}
-rec.onstart=function(){on=true;b.textContent="MIC: ON";};
-rec.onend=function(){
-on=false;
-if(hold){return;}
-if(want){b.textContent="MIC: ...";setTimeout(start,800);}
-else if(!blocked){b.textContent="MIC: OFF";}
-};
-rec.onerror=function(e){
-if(e.error==="not-allowed"||e.error==="service-not-allowed"){
-want=false;blocked=true;b.textContent="MIC: toque";
-}
-};
-rec.addEventListener("error",function(e){window.lastErr=e.error;});
-rec.addEventListener("speechstart",function(){window.lastErr="speechstart";});
-rec.addEventListener("nomatch",function(){window.lastErr="nomatch";});
-rec.addEventListener("start",function(){b.textContent="MIC: ON "+(window.lastErr||"");});
-rec.onresult=function(e){
-b.textContent=(speaking()?"[fala] ":"")+"OUVI: "+e.results[e.results.length-1][0].transcript.slice(0,25);
-if(speaking())return;
-var t=e.results[e.results.length-1][0].transcript.trim();
-if(!t)return;
-var m=t.match(/j[aá]r?vi[sz]/i);
-var cmd=t;
-if(m){
-cmd=t.slice(m.index+m[0].length).replace(/^[\s,.!?:;-]+/,"");
-if(!cmd){wake();return;}
-}else if(!awake){return;}
-awake=false;clearTimeout(timer);
-box.value=cmd;
-box.dispatchEvent(new Event("input",{bubbles:true}));
-pause();
-setTimeout(function(){go.click();},200);
-};
-setInterval(function(){
-if(!want)return;
-if(speaking()||window.busy){
-quiet=0;
-if(!hold)pause();
-}else if(hold){
-quiet+=300;
-if(quiet>=3500){hold=false;quiet=0;start();}
-}
-},300);
-b.onclick=function(){
-if(want){
-want=false;hold=false;sleep();
-try{rec.stop();}catch(e){}
-b.textContent="MIC: OFF";
-}else{
-want=true;blocked=false;hold=false;start();
-}
-};
-document.addEventListener("click",function(){
-if(blocked){blocked=false;want=true;start();}
-});
-if(core)core.addEventListener("click",function(){try{stopVoice();}catch(e){}});
-function lock(){
-try{navigator.wakeLock.request("screen").catch(function(){});}catch(e){}
-}
-lock();
-document.addEventListener("visibilitychange",function(){if(!document.hidden)lock();});
-start();
+(function () {
+  var go = document.getElementById('go');
+  var inp = document.getElementById('in');
+  var core = document.getElementById('core');
+  if (!go || !inp) return;
+
+  var THRESH = 0.04;      // volume minimo para considerar voz
+  var START_MS = 200;     // voz sustentada para valer
+  var SILENCE_MS = 900;   // silencio que encerra o trecho
+  var MIN_MS = 600;       // trecho minimo
+  var MAX_MS = 12000;     // trecho maximo
+  var RX = /j[aáe]r?[vb][iíe][sz]/i;
+
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = go.className;
+  btn.style.cssText = go.style.cssText;
+  btn.textContent = 'MIC: OFF';
+  go.parentNode.insertBefore(btn, go.nextSibling);
+
+  var on = false, stream = null, ctx = null, analyser = null, buf = null;
+  var timer = null, lock = null, mimeType = '';
+  var rec = null, recording = false, recStart = 0, lastLoud = 0, sustained = false;
+  var pending = 0, wake = false, wakeTimer = null;
+  var st = 'OUVINDO', last = '', shown = '';
+
+  function show(s) {
+    if (s) st = s;
+    var t = on ? ('MIC: ' + st + (last ? ' | ' + last : '')) : 'MIC: OFF' + (last ? ' | ' + last : '');
+    if (t !== shown) { shown = t; btn.textContent = t; }
+  }
+
+  function jarvisBusy() {
+    try { if (typeof busy !== 'undefined' && busy) return true; } catch (e) {}
+    try { if (typeof curAudio !== 'undefined' && curAudio && !curAudio.paused && !curAudio.ended) return true; } catch (e) {}
+    try { if (window.speechSynthesis && window.speechSynthesis.speaking) return true; } catch (e) {}
+    return false;
+  }
+
+  function wakeOn() {
+    wake = true;
+    if (core) core.classList.add('think');
+    clearTimeout(wakeTimer);
+    wakeTimer = setTimeout(wakeOff, 8000);
+  }
+
+  function wakeOff() {
+    wake = false;
+    clearTimeout(wakeTimer);
+    if (core && !jarvisBusy()) core.classList.remove('think');
+  }
+
+  function run(cmd) {
+    wake = false;
+    clearTimeout(wakeTimer);
+    if (core) core.classList.add('think');
+    inp.value = cmd;
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    go.click();
+    setTimeout(function () {
+      if (core && !jarvisBusy() && !wake) core.classList.remove('think');
+    }, 2500);
+  }
+
+  function handle(t) {
+    t = (t || '').trim();
+    if (t.length < 2 || /^[.\s…]+$/.test(t)) return;
+    last = t.slice(0, 24);
+    if (jarvisBusy()) { show(); return; }
+    var m = t.match(RX);
+    if (m) {
+      var cmd = t.slice(m.index + m[0].length).replace(/^[\s,.:;!?\-–]+/, '').trim();
+      if (cmd.length >= 2) run(cmd); else wakeOn();
+    } else if (wake) {
+      run(t);
+    }
+    show();
+  }
+
+  function upload(blob) {
+    var fr = new FileReader();
+    fr.onloadend = function () {
+      var b64 = String(fr.result || '').split(',')[1];
+      if (!b64) return;
+      var pin = '';
+      try { pin = getPin() || ''; } catch (e) {}
+      pending++;
+      fetch('/api/listen', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ audio: b64, mime: blob.type || 'audio/webm', pin: pin })
+      })
+        .then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        })
+        .then(function (x) {
+          pending--;
+          if (!x.ok) { last = 'ERRO: ' + ((x.d && x.d.error) || '?').slice(0, 40); show(); return; }
+          handle(x.d.text);
+        })
+        .catch(function () {
+          pending--;
+          last = 'ERRO DE REDE';
+          show();
+        });
+    };
+    fr.readAsDataURL(blob);
+  }
+
+  function startRec(now) {
+    var chunks = [];
+    var r;
+    try {
+      r = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+    } catch (e) { last = 'ERRO REC'; show(); return; }
+    r._keep = false;
+    r.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    r.onstop = function () {
+      if (r._keep && chunks.length) upload(new Blob(chunks, { type: r.mimeType || 'audio/webm' }));
+    };
+    try { r.start(); } catch (e) { last = 'ERRO REC'; show(); return; }
+    rec = r;
+    recording = true;
+    recStart = now;
+    lastLoud = now;
+    sustained = false;
+  }
+
+  function endRec(keep) {
+    if (!rec) return;
+    rec._keep = keep;
+    recording = false;
+    try { rec.stop(); } catch (e) {}
+    rec = null;
+  }
+
+  function tick() {
+    if (!on || !analyser) return;
+    analyser.getByteTimeDomainData(buf);
+    var sum = 0;
+    for (var i = 0; i < buf.length; i++) {
+      var v = (buf[i] - 128) / 128;
+      sum += v * v;
+    }
+    var level = Math.sqrt(sum / buf.length);
+    var now = Date.now();
+
+    if (jarvisBusy()) {
+      if (recording) endRec(false);
+      show('JARVIS OCUPADO');
+      return;
+    }
+
+    var loud = level > THRESH;
+
+    if (!recording) {
+      if (loud) { startRec(now); show('GRAVANDO'); }
+      else show(pending > 0 ? 'TRANSCREVENDO' : 'OUVINDO');
+      return;
+    }
+
+    if (loud) {
+      lastLoud = now;
+      if (now - recStart >= START_MS) sustained = true;
+    }
+    if (now - recStart > MAX_MS) { endRec(false); return; }
+    if (now - lastLoud > SILENCE_MS) {
+      var dur = lastLoud - recStart;
+      endRec(sustained && dur >= MIN_MS);
+      return;
+    }
+    if (!sustained && now - lastLoud > START_MS) { endRec(false); return; }
+    show('GRAVANDO');
+  }
+
+  async function getLock() {
+    try {
+      if ('wakeLock' in navigator) lock = await navigator.wakeLock.request('screen');
+    } catch (e) {}
+  }
+
+  async function start() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      var AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      if (ctx.state === 'suspended') await ctx.resume();
+      var src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      buf = new Uint8Array(analyser.fftSize);
+      mimeType = '';
+      var types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      for (var i = 0; i < types.length; i++) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(types[i])) { mimeType = types[i]; break; }
+      }
+      on = true;
+      last = '';
+      st = 'OUVINDO';
+      timer = setInterval(tick, 50);
+      getLock();
+      show();
+    } catch (e) {
+      on = false;
+      last = 'ERRO MIC: ' + (e && e.name ? e.name : 'desconhecido');
+      show();
+    }
+  }
+
+  function stop() {
+    on = false;
+    clearInterval(timer);
+    if (recording) endRec(false);
+    try { if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (ctx) ctx.close(); } catch (e) {}
+    try { if (lock) lock.release(); } catch (e) {}
+    stream = null; ctx = null; analyser = null; lock = null;
+    wakeOff();
+    last = '';
+    show();
+  }
+
+  btn.addEventListener('click', function () {
+    if (on) stop(); else start();
+  });
+
+  if (core) {
+    core.addEventListener('click', function () {
+      try { if (typeof stopVoice === 'function') stopVoice(); } catch (e) {}
+    });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (on && document.visibilityState === 'visible') getLock();
+  });
 })();
