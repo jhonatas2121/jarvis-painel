@@ -10,7 +10,7 @@ go.parentNode.insertBefore(b,go);
 if(!SR){b.textContent="MIC: sem suporte";return;}
 var rec=new SR();
 rec.lang="pt-BR";rec.continuous=true;rec.interimResults=false;
-var want=true,on=false,awake=false,blocked=false,timer=null;
+var want=true,on=false,awake=false,blocked=false,hold=false,quiet=0,timer=null;
 function speaking(){
 try{if(window.curAudio&&!window.curAudio.paused)return true;}catch(e){}
 try{if(window.speechSynthesis&&speechSynthesis.speaking)return true;}catch(e){}
@@ -21,10 +21,12 @@ function wake(){
 awake=true;if(core)core.classList.add("think");
 clearTimeout(timer);timer=setTimeout(sleep,8000);
 }
-function start(){if(!want||on)return;try{rec.start();}catch(e){}}
+function pause(){hold=true;quiet=0;b.textContent="MIC: PAUSA";try{rec.abort();}catch(e){}}
+function start(){if(!want||on||hold)return;try{rec.start();}catch(e){}}
 rec.onstart=function(){on=true;b.textContent="MIC: ON";};
 rec.onend=function(){
 on=false;
+if(hold){return;}
 if(want){b.textContent="MIC: ...";setTimeout(start,800);}
 else if(!blocked){b.textContent="MIC: OFF";}
 };
@@ -46,15 +48,26 @@ if(!cmd){wake();return;}
 awake=false;clearTimeout(timer);
 box.value=cmd;
 box.dispatchEvent(new Event("input",{bubbles:true}));
+pause();
 setTimeout(function(){go.click();},200);
 };
+setInterval(function(){
+if(!want)return;
+if(speaking()||window.busy){
+quiet=0;
+if(!hold)pause();
+}else if(hold){
+quiet+=300;
+if(quiet>=3500){hold=false;quiet=0;start();}
+}
+},300);
 b.onclick=function(){
 if(want){
-want=false;sleep();
+want=false;hold=false;sleep();
 try{rec.stop();}catch(e){}
 b.textContent="MIC: OFF";
 }else{
-want=true;blocked=false;start();
+want=true;blocked=false;hold=false;start();
 }
 };
 document.addEventListener("click",function(){
