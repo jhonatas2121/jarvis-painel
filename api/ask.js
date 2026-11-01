@@ -11,14 +11,33 @@ module.exports = async (req, res) => {
   const models = [m1, m2];
 
   const t = q.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const keywords = ["hoje", "agora", "atual", "ultima", "ultimo", "noticia", "cotacao", "preco", "clima", "previsao", "placar", "resultado", "lancamento", "tendencia", "2026"];
+  const keywords = ["ultima", "ultimo", "noticia", "cotacao", "preco", "clima", "previsao", "placar", "resultado", "lancamento", "novidade", "tendencia", "2026"];
   const wantsSearch = body.search === true ? true : keywords.some((k) => t.includes(k));
   let useSearch = process.env.GEMINI_SEARCH !== "off" && wantsSearch;
 
+  const agora = new Date().toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  const instruction =
+    "Voce e o JARVIS, assistente pessoal de um empreendedor digital brasileiro. " +
+    "Ajude com tudo do trabalho digital: marketing de afiliados (incluindo Shopee), campanhas, ideias de conteudo, trafego pago e organizacao. " +
+    "Data e hora atuais em Brasilia: " + agora + ". Use sempre essa informacao quando perguntarem data ou hora. " +
+    "Responda em portugues do Brasil, de forma curta e direta: 1 a 2 frases em perguntas simples. " +
+    "So se alongue se o usuario pedir detalhes, e nesse caso va direto ao ponto. " +
+    "Nao faca perguntas de volta nem ofereca listas de opcoes sem que peçam.";
+
   const buildPayload = () => {
     const p = {
-      systemInstruction: { parts: [{ text: "Voce e o JARVIS, assistente pessoal de um empreendedor digital brasileiro. Ajude com tudo do trabalho digital: marketing de afiliados (incluindo Shopee), campanhas, ideias de conteudo, trafego pago e organico, copy, SEO, redes sociais, videos curtos, automacoes e estrategia de negocio online. Responda em portugues do Brasil, com acentos corretos, de forma direta, pratica e elegante, em no maximo 15 frases. Quando pedirem ideias ou planos, entregue passos objetivos e exemplos prontos para usar. Use a busca na web quando a pergunta depender de informacao atual." }] },
-      contents: [{ role: "user", parts: [{ text: q }] }]
+      systemInstruction: { parts: [{ text: instruction }] },
+      contents: [{ role: "user", parts: [{ text: q }] }],
+      generationConfig: { maxOutputTokens: 700 }
     };
     if (useSearch) p.tools = [{ google_search: {} }];
     return JSON.stringify(p);
