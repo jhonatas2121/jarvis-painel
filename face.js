@@ -176,8 +176,13 @@
   function lerPin() {
     try { return localStorage.getItem(PKEY); } catch (e) { return null; }
   }
+  // entrega o PIN ao painel (index.html usa sessionStorage 'jv-pin')
+  function sessaoPin(p) {
+    try { sessionStorage.setItem('jv-pin', p); } catch (e) {}
+  }
   function salvarPin(p) {
     try { localStorage.setItem(PKEY, p); } catch (e) {}
+    sessaoPin(p);
   }
   function apagarPin() {
     try { localStorage.removeItem(PKEY); } catch (e) {}
@@ -275,7 +280,7 @@
     btn.style.display = 'none';
     sm.style.display = 'none';
     var r = await checarPin(guardado);
-    if (r === 'ok') { await aprovar(); return; }
+    if (r === 'ok') { sessaoPin(guardado); await aprovar(); return; }
     if (r === 'net') { falhar('SEM CONEXÃO. TENTE NOVAMENTE'); return; }
     apagarPin();
     mostrarCampoPin('ROSTO RECONHECIDO. O PIN MUDOU, DIGITE O NOVO');
