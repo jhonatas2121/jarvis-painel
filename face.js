@@ -1,5 +1,6 @@
 (function () {
   var KEY = 'jarvis_face_v1';
+  var PKEY = 'jarvis_pin_v1';
   var CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js';
   var MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
   var MATCH = 0.5; // menor = mais rigoroso (0.45 a 0.6)
@@ -172,6 +173,16 @@
     } catch (e) { return []; }
   }
 
+  function lerPin() {
+    try { return localStorage.getItem(PKEY); } catch (e) { return null; }
+  }
+  function salvarPin(p) {
+    try { localStorage.setItem(PKEY, p); } catch (e) {}
+  }
+  function apagarPin() {
+    try { localStorage.removeItem(PKEY); } catch (e) {}
+  }
+
   function msgErro(e) {
     var n = e && e.name ? e.name : '';
     var m = e && e.message ? e.message : '';
@@ -201,10 +212,10 @@
     fl.classList.remove('scan', 'cam', 'ok');
     fl.classList.add('bad', 'neg');
     pn.style.display = 'none';
-    setStatus('ACESSO NEGADO. ROSTO NÃO RECONHECIDO. VOCÊ NÃO É O MEU SENHOR.');
+    setStatus('ACESSO NEGADO. ROSTO NÃO COMPATÍVEL COM O USUÁRIO AUTORIZADO. VOCÊ NÃO É O MEU SENHOR.');
     setBar(0);
     sNeg();
-    falar('Acesso negado. Rosto não reconhecido. Você não é o meu senhor.');
+    falar('Acesso negado. Rosto não compatível com o usuário autorizado. Você não é o meu senhor.');
     btn.textContent = 'TENTAR NOVAMENTE';
     btn.style.display = '';
     sm.style.display = '';
@@ -239,18 +250,35 @@
     liberar(true);
   }
 
-  function pedirPin() {
-    pararCam();
-    fl.classList.remove('scan', 'cam', 'bad', 'neg');
-    setBar(100);
-    setStatus('ROSTO RECONHECIDO. DIGITE O PIN');
-    sSeen();
+  function mostrarCampoPin(texto) {
+    pinMode = 'enter';
+    setStatus(texto);
     btn.style.display = 'none';
     sm.style.display = 'none';
-    pinMode = 'enter';
     pi.value = '';
     pn.style.display = 'flex';
     try { pi.focus(); } catch (e) {}
+  }
+
+  // rosto reconhecido: o painel digita o PIN guardado sozinho
+  async function pedirPin() {
+    pararCam();
+    fl.classList.remove('scan', 'cam', 'bad', 'neg');
+    setBar(100);
+    sSeen();
+    var guardado = lerPin();
+    if (guardado === null) {
+      mostrarCampoPin('ROSTO RECONHECIDO. DIGITE O PIN UMA VEZ');
+      return;
+    }
+    setStatus('ROSTO RECONHECIDO. VALIDANDO ACESSO');
+    btn.style.display = 'none';
+    sm.style.display = 'none';
+    var r = await checarPin(guardado);
+    if (r === 'ok') { await aprovar(); return; }
+    if (r === 'net') { falhar('SEM CONEXÃO. TENTE NOVAMENTE'); return; }
+    apagarPin();
+    mostrarCampoPin('ROSTO RECONHECIDO. O PIN MUDOU, DIGITE O NOVO');
   }
 
   async function verificar() {
@@ -285,7 +313,7 @@
         if (n % 8 === 0) beep(1800, 2200, 0, 0.04, 0.03);
         await sleep(120);
       }
-      if (ok) pedirPin();
+      if (ok) await pedirPin();
       else if (miss >= MISSES) negar();
       else falhar('NÃO CONSEGUI VER SEU ROSTO. MELHORE A LUZ');
     } catch (e) {
@@ -362,7 +390,8 @@
   async function pinOk() {
     if (busy || checking) return;
     checking = true;
-    var r = await checarPin(pi.value);
+    var p = pi.value;
+    var r = await checarPin(p);
     pi.value = '';
     checking = false;
     if (r === 'net') { setStatus('SEM CONEXÃO'); sBad(); return; }
@@ -370,6 +399,7 @@
       if (pinMode === 'enter') { negar(); return; }
       setStatus('PIN INCORRETO'); sBad(); return;
     }
+    salvarPin(p);
     pn.style.display = 'none';
     if (pinMode === 'redo') cadastrar(); else aprovar();
   }
