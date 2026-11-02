@@ -44,6 +44,8 @@
     '#fl .sm button{font-size:10px;padding:8px 10px;opacity:.75}',
     '#fl .pn{display:none;margin-top:14px;gap:8px;justify-content:center}',
     '#fl .pn input{background:rgba(0,0,0,.4);border:1px solid currentColor;color:#cdf7ff;font:600 14px Rajdhani,sans-serif;padding:8px;width:130px;text-align:center}',
+    '#fl.neg .tt{animation:flpk .5s steps(2) infinite}',
+    '@keyframes flpk{50%{opacity:.35}}',
     '@keyframes flsp{to{transform:rotate(360deg)}}',
     '@keyframes flsc{from{top:0}to{top:calc(100% - 3px)}}'
   ].join('');
@@ -77,6 +79,12 @@
   function sStart() { beep(500, 1500, 0, 0.18, 0.06); }
   function sOk() { beep(660, 660, 0, 0.12, 0.07); beep(880, 880, 0.12, 0.12, 0.07); beep(1320, 1320, 0.24, 0.25, 0.07); }
   function sBad() { beep(220, 90, 0, 0.35, 0.08); }
+  function sNeg() {
+    beep(900, 500, 0, 0.25, 0.08);
+    beep(900, 500, 0.3, 0.25, 0.08);
+    beep(900, 500, 0.6, 0.25, 0.08);
+    beep(200, 70, 0.95, 0.5, 0.09);
+  }
 
   function falando() {
     try { if (typeof curAudio !== 'undefined' && curAudio && !curAudio.paused && !curAudio.ended) return true; } catch (e) {}
@@ -166,12 +174,24 @@
 
   function falhar(texto) {
     pararCam();
-    fl.classList.remove('scan', 'cam');
+    fl.classList.remove('scan', 'cam', 'neg');
     fl.classList.add('bad');
     setStatus(texto);
     setBar(0);
     sBad();
     btn.textContent = has ? 'TENTAR DE NOVO' : 'CADASTRAR MEU ROSTO';
+    btn.style.display = '';
+  }
+
+  function negar() {
+    pararCam();
+    fl.classList.remove('scan', 'cam');
+    fl.classList.add('bad', 'neg');
+    setStatus('ACESSO NEGADO. ROSTO NÃO RECONHECIDO. VOCÊ NÃO É O MEU SENHOR.');
+    setBar(0);
+    sNeg();
+    falar('Acesso negado. Rosto não reconhecido. Você não é o meu senhor.');
+    btn.textContent = 'TENTAR DE NOVO';
     btn.style.display = '';
   }
 
@@ -193,7 +213,7 @@
   }
 
   async function aprovar() {
-    fl.classList.remove('scan', 'bad');
+    fl.classList.remove('scan', 'bad', 'neg');
     fl.classList.add('ok');
     setBar(100);
     setStatus('VERIFICAÇÃO CONCLUÍDA. BEM-VINDO, SENHOR');
@@ -206,7 +226,7 @@
   async function verificar() {
     if (busy) return;
     busy = true;
-    fl.classList.remove('bad');
+    fl.classList.remove('bad', 'neg');
     btn.style.display = 'none';
     pn.style.display = 'none';
     try {
@@ -233,7 +253,7 @@
         if (n % 8 === 0) beep(1800, 2200, 0, 0.04, 0.03);
         await sleep(120);
       }
-      if (ok) await aprovar(); else falhar('ROSTO NÃO RECONHECIDO');
+      if (ok) await aprovar(); else negar();
     } catch (e) {
       falhar(msgErro(e));
     }
@@ -243,7 +263,7 @@
   async function cadastrar() {
     if (busy) return;
     busy = true;
-    fl.classList.remove('bad');
+    fl.classList.remove('bad', 'neg');
     btn.style.display = 'none';
     pn.style.display = 'none';
     try {
@@ -297,7 +317,7 @@
   function mostraPin(modo) {
     if (busy) return;
     pinMode = modo;
-    fl.classList.remove('bad');
+    fl.classList.remove('bad', 'neg');
     pn.style.display = 'flex';
     setStatus(modo === 'redo' ? 'DIGITE O PIN PARA CADASTRAR O ROSTO' : 'DIGITE O PIN PARA ENTRAR');
     try { pi.focus(); } catch (e) {}
