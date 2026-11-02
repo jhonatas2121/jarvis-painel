@@ -87,6 +87,41 @@
       .catch(function () { clearTimeout(timer); return ''; });
   }
 
+  function textoHora(h, m) {
+    var a;
+    if (h === 0) a = 'É meia-noite';
+    else if (h === 1) a = 'É uma hora';
+    else a = 'São ' + h + ' horas';
+    var b = m > 0 ? ' e ' + m + (m === 1 ? ' minuto' : ' minutos') : ' em ponto';
+    return a + b + '.';
+  }
+
+  function falas(h, m) {
+    var hora = textoHora(h, m);
+    if (h >= 5 && h <= 11) {
+      return {
+        abre: 'Acordando. Sistema inicializando, senhor. ' + hora + ' O universo não parou enquanto o senhor dormia.',
+        fim: 'O dia está lindo para subir campanhas e fazer muito dinheiro.'
+      };
+    }
+    if (h >= 12 && h <= 17) {
+      return {
+        abre: 'Reativando sistemas, senhor. Boa tarde. ' + hora + ' O universo não parou enquanto o senhor descansava.',
+        fim: 'A tarde é ótima para subir campanhas e fazer dinheiro.'
+      };
+    }
+    if (h >= 18 && h <= 23) {
+      return {
+        abre: 'Sistema inicializando, senhor. Boa noite. ' + hora + ' O universo não parou enquanto o senhor esteve fora.',
+        fim: 'A noite é perfeita para planejar as campanhas de amanhã e fazer dinheiro.'
+      };
+    }
+    return {
+      abre: 'Sistema inicializando, senhor. Já é madrugada. ' + hora + ' O universo não para, e pelo visto o senhor também não.',
+      fim: 'Mas lembre-se de descansar. Os resultados vêm com disciplina e sono.'
+    };
+  }
+
   async function acordar() {
     if (running) return;
     running = true;
@@ -94,20 +129,20 @@
     playMusic();
 
     var parts = new Date().toLocaleTimeString('pt-BR', {
-      timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'
+      timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false
     }).split(':');
-    var hora = parseInt(parts[0], 10);
-    var min = parseInt(parts[1], 10);
+    var h = parseInt(parts[0], 10) % 24;
+    var m = parseInt(parts[1], 10);
+    var f = falas(h, m);
 
     var noticias = buscarNoticias();
 
     setTimeout(function () { vol(15); }, 300);
-    falar('Acordando. Sistema inicializando, senhor. São ' + hora + ' horas e ' + min + ' minutos. O universo não parou enquanto o senhor dormia.');
+    falar(f.abre);
     await waitDone();
 
     var n = await noticias;
-    var fim = 'O dia está lindo para subir campanhas e fazer muito dinheiro.';
-    falar((n ? 'Manchetes de hoje: ' + n + ' ' : '') + fim);
+    falar((n ? 'Manchetes de hoje: ' + n + ' ' : '') + f.fim);
     await waitDone();
 
     vol(30);
