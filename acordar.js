@@ -1,6 +1,6 @@
 (function () {
-  // Para a musica: cole entre as aspas o codigo do video (o que vem depois de v= no link do YouTube)
-  var MUSIC = '';
+  // Codigo do video do YouTube (o que vem depois de youtu.be/ ou v= no link)
+  var MUSIC = 'XcR9_P2hScQ';
 
   var go = document.getElementById('go');
   var inp = document.getElementById('in');
