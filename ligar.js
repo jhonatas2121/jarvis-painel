@@ -21,6 +21,20 @@
       }
     }, 3800);
   }
+  function abrirApp(pacote, url, nome, aviso) {
+    if (window.JarvisApp && typeof window.JarvisApp.abrirApp === 'function') {
+      falar(aviso);
+      setTimeout(function () {
+        var ok = false;
+        try { ok = window.JarvisApp.abrirApp(pacote); } catch (e) {}
+        if (!ok) {
+          falar('Não consegui abrir ' + nome + '. Confira se o aplicativo está instalado.');
+        }
+      }, 700);
+      return;
+    }
+    abrir(url, nome, aviso);
+  }
   function numero(txt) {
     var d = String(txt || '').replace(/\D/g, '');
     return d.length >= 8 ? d : '';
@@ -30,11 +44,11 @@
     if (!v) return false;
     var m;
     if (/^(abrir|abre|abra|iniciar|ir para)( o)? (whats ?app|zap ?zap|zap)$/.test(v)) {
-      abrir('whatsapp://send', 'o WhatsApp', 'Abrindo o WhatsApp, senhor.');
+      abrirApp('com.whatsapp', 'whatsapp://send', 'o WhatsApp', 'Abrindo o WhatsApp, senhor.');
       return true;
     }
     if (/^(abrir|abre|abra|iniciar|ir para)( o)? discord$/.test(v)) {
-      abrir('discord://', 'o Discord', 'Abrindo o Discord, senhor.');
+      abrirApp('com.discord', 'discord://', 'o Discord', 'Abrindo o Discord, senhor.');
       return true;
     }
     m = v.match(/^(?:mandar |enviar |abrir |chamar )?(?:whats ?app|zap ?zap|zap) (?:para|pra) (.+)$/);
