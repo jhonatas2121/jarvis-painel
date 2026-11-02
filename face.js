@@ -6,8 +6,8 @@
   var HITS = 2;
 
   var root = document.documentElement;
-  var fl, vid, stEl, bar, btn, pn, pi;
-  var stream = null, loaded = false, busy = false, opt = null, has = false;
+  var fl, vid, stEl, bar, btn, pn, pi, sm;
+  var stream = null, loaded = false, busy = false, checking = false, opt = null, has = false;
   var pinMode = 'enter';
   var ac = null;
 
@@ -42,8 +42,9 @@
     '#fl button:active{background:currentColor}',
     '#fl .sm{margin-top:14px;display:flex;gap:10px;justify-content:center}',
     '#fl .sm button{font-size:10px;padding:8px 10px;opacity:.75}',
-    '#fl .pn{display:none;margin-top:14px;gap:8px;justify-content:center}',
+    '#fl .pn{display:none;margin-top:14px;gap:8px;justify-content:center;flex-wrap:wrap}',
     '#fl .pn input{background:rgba(0,0,0,.4);border:1px solid currentColor;color:#cdf7ff;font:600 14px Rajdhani,sans-serif;padding:8px;width:130px;text-align:center}',
+    '#fl .pn button{padding:8px 14px;font-size:11px}',
     '#fl.neg .tt{animation:flpk .5s steps(2) infinite}',
     '@keyframes flpk{50%{opacity:.35}}',
     '@keyframes flsp{to{transform:rotate(360deg)}}',
@@ -79,6 +80,7 @@
   function sStart() { beep(500, 1500, 0, 0.18, 0.06); }
   function sOk() { beep(660, 660, 0, 0.12, 0.07); beep(880, 880, 0.12, 0.12, 0.07); beep(1320, 1320, 0.24, 0.25, 0.07); }
   function sBad() { beep(220, 90, 0, 0.35, 0.08); }
+  function sSeen() { beep(880, 880, 0, 0.1, 0.06); beep(1320, 1320, 0.12, 0.18, 0.06); }
   function sNeg() {
     beep(900, 500, 0, 0.25, 0.08);
     beep(900, 500, 0.3, 0.25, 0.08);
@@ -166,7 +168,7 @@
     var m = e && e.message ? e.message : '';
     if (n === 'NotAllowedError') return 'CÂMERA NEGADA. LIBERE NAS CONFIGURAÇÕES DO SITE';
     if (n === 'NotFoundError') return 'CÂMERA NÃO ENCONTRADA';
-    if (m === 'load') return 'FALHA AO CARREGAR MÓDULOS. USE O PIN';
+    if (m === 'load') return 'FALHA AO CARREGAR MÓDULOS';
     if (m === 'timeout') return 'NÃO CONSEGUI VER SEU ROSTO. MELHORE A LUZ';
     if (m === 'save') return 'NÃO CONSEGUI SALVAR O ROSTO NESTE NAVEGADOR';
     return 'ERRO: ' + (m || n || 'DESCONHECIDO').slice(0, 40);
@@ -176,23 +178,27 @@
     pararCam();
     fl.classList.remove('scan', 'cam', 'neg');
     fl.classList.add('bad');
+    pn.style.display = 'none';
     setStatus(texto);
     setBar(0);
     sBad();
-    btn.textContent = has ? 'TENTAR DE NOVO' : 'CADASTRAR MEU ROSTO';
+    btn.textContent = has ? 'TENTAR NOVAMENTE' : 'CADASTRAR MEU ROSTO';
     btn.style.display = '';
+    sm.style.display = '';
   }
 
   function negar() {
     pararCam();
-    fl.classList.remove('scan', 'cam');
+    fl.classList.remove('scan', 'cam', 'ok');
     fl.classList.add('bad', 'neg');
+    pn.style.display = 'none';
     setStatus('ACESSO NEGADO. ROSTO NÃO RECONHECIDO. VOCÊ NÃO É O MEU SENHOR.');
     setBar(0);
     sNeg();
     falar('Acesso negado. Rosto não reconhecido. Você não é o meu senhor.');
-    btn.textContent = 'TENTAR DE NOVO';
+    btn.textContent = 'TENTAR NOVAMENTE';
     btn.style.display = '';
+    sm.style.display = '';
   }
 
   function acordar() {
@@ -215,12 +221,27 @@
   async function aprovar() {
     fl.classList.remove('scan', 'bad', 'neg');
     fl.classList.add('ok');
+    pn.style.display = 'none';
     setBar(100);
     setStatus('VERIFICAÇÃO CONCLUÍDA. BEM-VINDO, SENHOR');
     sOk();
     falar('Verificação concluída. Bem-vindo, senhor.');
     await esperaFala(9000);
     liberar(true);
+  }
+
+  function pedirPin() {
+    pararCam();
+    fl.classList.remove('scan', 'cam', 'bad', 'neg');
+    setBar(100);
+    setStatus('ROSTO RECONHECIDO. DIGITE O PIN');
+    sSeen();
+    btn.style.display = 'none';
+    sm.style.display = 'none';
+    pinMode = 'enter';
+    pi.value = '';
+    pn.style.display = 'flex';
+    try { pi.focus(); } catch (e) {}
   }
 
   async function verificar() {
@@ -253,7 +274,7 @@
         if (n % 8 === 0) beep(1800, 2200, 0, 0.04, 0.03);
         await sleep(120);
       }
-      if (ok) await aprovar(); else negar();
+      if (ok) pedirPin(); else falhar('ROSTO NÃO RECONHECIDO');
     } catch (e) {
       falhar(msgErro(e));
     }
@@ -318,19 +339,33 @@
     if (busy) return;
     pinMode = modo;
     fl.classList.remove('bad', 'neg');
+    pi.value = '';
     pn.style.display = 'flex';
-    setStatus(modo === 'redo' ? 'DIGITE O PIN PARA CADASTRAR O ROSTO' : 'DIGITE O PIN PARA ENTRAR');
+    setStatus('DIGITE O PIN PARA CADASTRAR O ROSTO');
     try { pi.focus(); } catch (e) {}
   }
 
   async function pinOk() {
-    if (busy) return;
+    if (busy || checking) return;
+    checking = true;
     var r = await checarPin(pi.value);
     pi.value = '';
+    checking = false;
     if (r === 'net') { setStatus('SEM CONEXÃO'); sBad(); return; }
-    if (r === 'bad') { setStatus('PIN INCORRETO'); sBad(); return; }
+    if (r === 'bad') {
+      if (pinMode === 'enter') { negar(); return; }
+      setStatus('PIN INCORRETO'); sBad(); return;
+    }
     pn.style.display = 'none';
-    if (pinMode === 'redo') cadastrar(); else liberar(true);
+    if (pinMode === 'redo') cadastrar(); else aprovar();
+  }
+
+  function pinCancelar() {
+    if (busy || checking) return;
+    pi.value = '';
+    pn.style.display = 'none';
+    if (pinMode === 'enter') { negar(); return; }
+    setStatus(has ? 'TOQUE PARA INICIAR' : 'ROSTO NÃO CADASTRADO');
   }
 
   function build() {
@@ -351,8 +386,8 @@
       '<div class="ss" id="fls"></div>' +
       '<div class="pb"><i id="flb"></i></div>' +
       '<button id="flgo" type="button"></button>' +
-      '<div class="pn" id="flpn"><input id="flpi" type="password" placeholder="PIN" autocomplete="off"><button id="flpo" type="button">OK</button></div>' +
-      '<div class="sm"><button id="flup" type="button">USAR PIN</button><button id="flre" type="button">REFAZER ROSTO</button></div>' +
+      '<div class="pn" id="flpn"><input id="flpi" type="password" placeholder="PIN" autocomplete="off"><button id="flpo" type="button">OK</button><button id="flpc" type="button">CANCELAR</button></div>' +
+      '<div class="sm" id="flsm"><button id="flre" type="button">REFAZER ROSTO</button></div>' +
       '</div>';
     root.appendChild(fl);
 
@@ -362,18 +397,19 @@
     btn = document.getElementById('flgo');
     pn = document.getElementById('flpn');
     pi = document.getElementById('flpi');
+    sm = document.getElementById('flsm');
 
     has = lerSalvo().length > 0;
     btn.textContent = has ? 'INICIAR VERIFICAÇÃO' : 'CADASTRAR MEU ROSTO';
     setStatus(has ? 'TOQUE PARA INICIAR' : 'ROSTO NÃO CADASTRADO');
-    if (!has) document.getElementById('flre').style.display = 'none';
+    if (!has) sm.style.display = 'none';
 
     btn.addEventListener('click', function () {
       if (has) verificar(); else mostraPin('redo');
     });
-    document.getElementById('flup').addEventListener('click', function () { mostraPin('enter'); });
     document.getElementById('flre').addEventListener('click', function () { mostraPin('redo'); });
     document.getElementById('flpo').addEventListener('click', pinOk);
+    document.getElementById('flpc').addEventListener('click', pinCancelar);
     pi.addEventListener('keydown', function (e) { if (e.key === 'Enter') pinOk(); });
   }
 
