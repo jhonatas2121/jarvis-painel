@@ -4,6 +4,7 @@
   var MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
   var MATCH = 0.5; // menor = mais rigoroso (0.45 a 0.6)
   var HITS = 2;
+  var MISSES = 6; // leituras seguidas de rosto diferente para rejeitar
 
   var root = document.documentElement;
   var fl, vid, stEl, bar, btn, pn, pi, sm;
@@ -151,9 +152,17 @@
     try { vid.srcObject = null; } catch (e) {}
   }
 
-  async function detectar() {
+  async function detectarReal() {
     var r = await faceapi.detectSingleFace(vid, opt).withFaceLandmarks(true).withFaceDescriptor();
     return r ? r.descriptor : null;
+  }
+
+  // cada leitura tem no maximo 4 s, para nunca ficar travado
+  function detectar() {
+    return Promise.race([
+      detectarReal().catch(function () { return null; }),
+      new Promise(function (res) { setTimeout(function () { res(null); }, 4000); })
+    ]);
   }
 
   function lerSalvo() {
@@ -249,6 +258,7 @@
     busy = true;
     fl.classList.remove('bad', 'neg');
     btn.style.display = 'none';
+    sm.style.display = 'none';
     pn.style.display = 'none';
     try {
       sStart();
@@ -258,8 +268,8 @@
       fl.classList.add('cam', 'scan');
       setStatus('ESCANEANDO ROSTO'); setBar(95);
       var saved = lerSalvo();
-      var t0 = Date.now(), hits = 0, ok = false, n = 0;
-      while (Date.now() - t0 < 25000) {
+      var t0 = Date.now(), hits = 0, miss = 0, ok = false, n = 0;
+      while (Date.now() - t0 < 15000) {
         var d = await detectar();
         if (d) {
           var best = 9;
@@ -267,14 +277,17 @@
             var dist = faceapi.euclideanDistance(d, saved[i]);
             if (dist < best) best = dist;
           }
-          if (best < MATCH) hits++; else hits = 0;
+          if (best < MATCH) { hits++; miss = 0; } else { hits = 0; miss++; }
           if (hits >= HITS) { ok = true; break; }
+          if (miss >= MISSES) break;
         }
         n++;
         if (n % 8 === 0) beep(1800, 2200, 0, 0.04, 0.03);
         await sleep(120);
       }
-      if (ok) pedirPin(); else falhar('ROSTO NÃO RECONHECIDO');
+      if (ok) pedirPin();
+      else if (miss >= MISSES) negar();
+      else falhar('NÃO CONSEGUI VER SEU ROSTO. MELHORE A LUZ');
     } catch (e) {
       falhar(msgErro(e));
     }
@@ -286,6 +299,7 @@
     busy = true;
     fl.classList.remove('bad', 'neg');
     btn.style.display = 'none';
+    sm.style.display = 'none';
     pn.style.display = 'none';
     try {
       sStart();
