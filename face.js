@@ -112,6 +112,26 @@
     } catch (e) {}
   }
 
+  // fala com a voz do JARVIS sem abrir a janelinha de PIN:
+  // entrega o PIN guardado ao painel so por 5 s e depois apaga
+  function falarSeguro(t) {
+    var cur = null;
+    try { cur = sessionStorage.getItem('jv-pin'); } catch (e) {}
+    var temp = false;
+    if (!cur) {
+      var p = lerPin();
+      if (!p) return; // sem PIN guardado: nao fala, para nao abrir a janelinha
+      sessaoPin(p);
+      temp = true;
+    }
+    falar(t);
+    if (temp) {
+      setTimeout(function () {
+        try { sessionStorage.removeItem('jv-pin'); } catch (e) {}
+      }, 5000);
+    }
+  }
+
   function loadScript(src) {
     return new Promise(function (res, rej) {
       if (window.faceapi) return res();
@@ -220,7 +240,7 @@
     setStatus('ACESSO NEGADO. ROSTO NÃO COMPATÍVEL COM O USUÁRIO AUTORIZADO. VOCÊ NÃO É O MEU SENHOR.');
     setBar(0);
     sNeg();
-    falar('Acesso negado. Rosto não compatível com o usuário autorizado. Você não é o meu senhor.');
+    falarSeguro('Acesso negado. Rosto não compatível com o usuário autorizado. Você não é o meu senhor.');
     btn.textContent = 'TENTAR NOVAMENTE';
     btn.style.display = '';
     sm.style.display = '';
