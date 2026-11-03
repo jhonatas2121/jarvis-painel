@@ -5,12 +5,17 @@
   if (!go || !inp) return;
 
   var MIN_THRESH = 0.04;
+  var START_FACTOR = 0.6;
   var LOUD_TICKS = 5;
   var QUIET_MS = 300;
-  var SILENCE_MS = 600;
+  var SILENCE_MS = 1100;
   var MIN_MS = 500;
   var MAX_MS = 12000;
-  var RX = /(?:j|g|t)[aáe]r?[vb][iíe][sz]|jarbas|j[aá] v[ií]s/i;
+  var RXS = [
+    /(?<![a-z])[jgtd]a?r[vbd][aei]s(?![a-z])/,
+    /(?<![a-z])ja ?v[aei]s(?![a-z])/,
+    /^(?:jair|de ?arv[aei]s)(?![a-z])/
+  ];
 
   var btn = document.createElement('button');
   btn.type = 'button';
@@ -62,13 +67,22 @@
     }, 2500);
   }
 
+  function findWake(t) {
+    var n = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    for (var i = 0; i < RXS.length; i++) {
+      var m = RXS[i].exec(n);
+      if (m) return { index: m.index, len: m[0].length };
+    }
+    return null;
+  }
+
   function handle(t) {
     t = (t || '').trim();
     if (t.length < 2 || /^[.\s…]+$/.test(t)) return;
     if (jarvisBusy()) return;
-    var m = t.match(RX);
+    var m = findWake(t);
     if (m) {
-      var cmd = t.slice(m.index + m[0].length).replace(/^[\s,.:;!?\-–]+/, '').trim();
+      var cmd = t.slice(m.index + m.len).replace(/^[\s,.:;!?\-–]+/, '').trim();
       if (cmd.length >= 2) run(cmd); else wakeOn();
     } else if (wake) {
       run(t);
@@ -158,7 +172,7 @@
     var loud = level > thresh;
 
     if (!recording) {
-      if (loud) {
+      if (level > thresh * START_FACTOR) {
         startRec(now);
       } else {
         noise = Math.min(0.05, noise * 0.95 + level * 0.05);
@@ -171,7 +185,7 @@
       loudCount++;
       if (loudCount >= LOUD_TICKS) sustained = true;
     }
-    if (now - recStart > MAX_MS) { endRec(false); return; }
+    if (now - recStart > MAX_MS) { endRec(sustained); return; }
     if (now - lastLoud > SILENCE_MS) {
       var dur = lastLoud - recStart;
       endRec(sustained && dur >= MIN_MS);
