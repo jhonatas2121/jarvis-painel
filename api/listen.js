@@ -39,6 +39,7 @@ module.exports = async (req, res) => {
           const c = d.candidates && d.candidates[0];
           const parts = c && c.content && c.content.parts ? c.content.parts : [];
           const text = parts.map((p) => (p.text ? p.text : "")).join("").trim();
+          console.log("LISTEN texto=" + JSON.stringify(text) + " modelo=" + model + " fim=" + (c && c.finishReason ? c.finishReason : "?"));
           return res.status(200).json({ text: text });
         }
         lastError = d.error && d.error.message ? d.error.message : "Erro da API.";
