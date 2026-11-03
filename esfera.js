@@ -1,4 +1,4 @@
-/* esfera.js v2 - esfera de pontinhos + forma humana (busto) do JARVIS */
+/* esfera.js v3 - esfera de pontinhos + forma humana (busto) do JARVIS */
 (function () {
   var core = document.getElementById("core");
   if (!core || document.getElementById("esfera")) return;
@@ -28,7 +28,6 @@
   }
 
   // ---------- pontos do busto (forma humana) ----------
-  // y para cima e positivo aqui; na tela e invertido ao guardar
   function suave(a) { a = Math.max(0, Math.min(1, a)); return a * a * (3 - 2 * a); }
   function meiaLargura(yy) {
     if (yy > 0) return 0.13;
@@ -50,20 +49,17 @@
     var v = (n * 0.56984029) % 1;
     var tx = 0, ty = 0, tz = 0;
     if (f < 0.26) {
-      // contorno da cabeca
       var a = u * 6.2832, s = Math.sin(a);
       tx = RX * Math.cos(a) * (s < 0 ? 1 + 0.18 * s : 1);
       ty = CX + RY * s;
       tz = (v - 0.5) * 0.1;
     } else if (f < 0.48) {
-      // linhas empilhadas na cabeca (scanner)
       var k = Math.floor(v * 16);
       var yy = CX - RY * 0.95 + (k / 15) * 2 * RY * 0.95;
       tx = (u * 2 - 1) * larguraCabeca(yy) * 0.95;
       ty = yy;
       tz = ((k % 3) - 1) * 0.05;
     } else if (f < 0.62) {
-      // pescoco e contorno dos ombros
       var lado = u < 0.5 ? -1 : 1;
       var yy2 = -v * 1.0;
       if (v < 0.1) yy2 = 0.1 - v * 1.5;
@@ -71,14 +67,12 @@
       ty = yy2;
       tz = (v - 0.5) * 0.06;
     } else if (f < 0.84) {
-      // linhas empilhadas no tronco
       var k2 = Math.floor(v * 12);
       var yy3 = -0.12 - (k2 / 11) * 0.86;
       tx = (u * 2 - 1) * meiaLargura(yy3) * 0.95;
       ty = yy3;
       tz = ((k2 % 3) - 1) * 0.05;
     } else {
-      // aura de particulas em arco
       var ar = -0.5 + u * 4.14;
       var rd = 1.22 + v * 0.3;
       tx = rd * Math.cos(ar);
@@ -175,6 +169,39 @@
     if (RX_ON.test(n)) return 1;
     return 0;
   }
+  function executar(c, inp) {
+    if (inp) inp.value = "";
+    humana(c === 1);
+    if (typeof window.say === "function") {
+      window.say(c === 1 ? "Como desejar, senhor." : "Voltando à forma de esfera, senhor.");
+    }
+  }
+
+  // intercepta o toque no ENVIAR antes de qualquer outro codigo
+  document.addEventListener("click", function (e) {
+    var go = document.getElementById("go");
+    if (!go || !(e.target === go || go.contains(e.target))) return;
+    var inp = document.getElementById("in");
+    var c = comando(inp ? inp.value : "");
+    if (!c) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    executar(c, inp);
+  }, true);
+
+  // intercepta o Enter no campo
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    var inp = document.getElementById("in");
+    if (!inp || e.target !== inp) return;
+    var c = comando(inp.value);
+    if (!c) return;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    executar(c, inp);
+  }, true);
+
+  // reserva: se alguem chamar send() direto
   var _send = window.send;
   if (typeof _send === "function") {
     window.send = function (txt) {
@@ -182,11 +209,7 @@
       var v = typeof txt === "string" ? txt : (inp ? inp.value : "");
       var c = comando(v);
       if (!c) return _send.apply(this, arguments);
-      if (inp) inp.value = "";
-      humana(c === 1);
-      if (typeof window.say === "function") {
-        window.say(c === 1 ? "Como desejar, senhor." : "Voltando à forma de esfera, senhor.");
-      }
+      executar(c, inp);
     };
   }
 
@@ -219,7 +242,6 @@
     var alvo = modo ? nivelAlvo(modo, t) : 0;
     nivel += (alvo - nivel) * 0.22;
 
-    // progresso da forma humana (2,4 s)
     if (mm < humanaAlvo) mm = Math.min(humanaAlvo, mm + dt / 2.4);
     else if (mm > humanaAlvo) mm = Math.max(humanaAlvo, mm - dt / 2.4);
 
