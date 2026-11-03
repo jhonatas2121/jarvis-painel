@@ -1,4 +1,4 @@
-/* esfera.js - esfera de pontinhos do JARVIS (visual novo, sem apagar o antigo) */
+/* esfera.js v2 - esfera de pontinhos + forma humana (busto) do JARVIS */
 (function () {
   var core = document.getElementById("core");
   if (!core || document.getElementById("esfera")) return;
@@ -25,6 +25,69 @@
     var r = Math.sqrt(1 - y * y);
     var th = i * 2.399963;
     P.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+  }
+
+  // ---------- pontos do busto (forma humana) ----------
+  // y para cima e positivo aqui; na tela e invertido ao guardar
+  function suave(a) { a = Math.max(0, Math.min(1, a)); return a * a * (3 - 2 * a); }
+  function meiaLargura(yy) {
+    if (yy > 0) return 0.13;
+    if (yy > -0.35) return 0.13 + 0.72 * suave(-yy / 0.35);
+    return 0.85 + 0.07 * Math.max(0, Math.min(1, (-0.35 - yy) / 0.65));
+  }
+  var CX = 0.55, RX = 0.36, RY = 0.46;
+  function larguraCabeca(yy) {
+    var q = (yy - CX) / RY;
+    if (Math.abs(q) >= 1) return 0;
+    var w = RX * Math.sqrt(1 - q * q);
+    if (q < 0) w *= 1 + 0.18 * q;
+    return w;
+  }
+  var T = [], ORD = [], SIDE = [];
+  for (var n = 0; n < N; n++) {
+    var f = (n * 0.61803398) % 1;
+    var u = (n * 0.75487766) % 1;
+    var v = (n * 0.56984029) % 1;
+    var tx = 0, ty = 0, tz = 0;
+    if (f < 0.26) {
+      // contorno da cabeca
+      var a = u * 6.2832, s = Math.sin(a);
+      tx = RX * Math.cos(a) * (s < 0 ? 1 + 0.18 * s : 1);
+      ty = CX + RY * s;
+      tz = (v - 0.5) * 0.1;
+    } else if (f < 0.48) {
+      // linhas empilhadas na cabeca (scanner)
+      var k = Math.floor(v * 16);
+      var yy = CX - RY * 0.95 + (k / 15) * 2 * RY * 0.95;
+      tx = (u * 2 - 1) * larguraCabeca(yy) * 0.95;
+      ty = yy;
+      tz = ((k % 3) - 1) * 0.05;
+    } else if (f < 0.62) {
+      // pescoco e contorno dos ombros
+      var lado = u < 0.5 ? -1 : 1;
+      var yy2 = -v * 1.0;
+      if (v < 0.1) yy2 = 0.1 - v * 1.5;
+      tx = lado * meiaLargura(yy2);
+      ty = yy2;
+      tz = (v - 0.5) * 0.06;
+    } else if (f < 0.84) {
+      // linhas empilhadas no tronco
+      var k2 = Math.floor(v * 12);
+      var yy3 = -0.12 - (k2 / 11) * 0.86;
+      tx = (u * 2 - 1) * meiaLargura(yy3) * 0.95;
+      ty = yy3;
+      tz = ((k2 % 3) - 1) * 0.05;
+    } else {
+      // aura de particulas em arco
+      var ar = -0.5 + u * 4.14;
+      var rd = 1.22 + v * 0.3;
+      tx = rd * Math.cos(ar);
+      ty = -0.1 + rd * Math.sin(ar) * 0.95;
+      tz = (v - 0.5) * 0.3;
+    }
+    T.push([tx, -ty, tz]);
+    ORD.push(Math.max(0, Math.min(1, (ty + 1) / 2.2)));
+    SIDE.push(tx < 0 ? -1 : 1);
   }
 
   // ---------- orbitas (cometas) ----------
@@ -85,9 +148,46 @@
         } catch (e) {}
       }
     }
-    // sem medidor (voz do telefone ou audio sem analisador): simula o ritmo da fala
     var v = 0.5 + 0.28 * Math.sin(t * 9.0) + 0.2 * Math.sin(t * 5.3 + 1.0) + 0.12 * Math.sin(t * 13.7);
     return Math.max(0.1, Math.min(1, v));
+  }
+
+  // ---------- forma humana: liga/desliga ----------
+  var humanaAlvo = 0;
+  function humana(on) { humanaAlvo = on ? 1 : 0; }
+  window.jarvisEsfera = {
+    humana: function () { humana(true); },
+    esfera: function () { humana(false); }
+  };
+
+  // ---------- comandos de voz (sem gastar Gemini) ----------
+  function norm(s) {
+    var x = String(s || "").toLowerCase();
+    try { x = x.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (e) {}
+    return x.replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  }
+  var RX_ON = /(revele ?se|revelar ?se|se revele|forma humana|assuma (a |sua )?forma|assumir (a )?forma|mostre (a )?(sua )?forma|mostre (o )?seu corpo)/;
+  var RX_OFF = /(volt[a-z]* (a|para a|pra) esfera|forma de esfera|modo esfera|desfaca (a )?forma)/;
+  function comando(v) {
+    var n = norm(v);
+    if (!n) return 0;
+    if (RX_OFF.test(n)) return 2;
+    if (RX_ON.test(n)) return 1;
+    return 0;
+  }
+  var _send = window.send;
+  if (typeof _send === "function") {
+    window.send = function (txt) {
+      var inp = document.getElementById("in");
+      var v = typeof txt === "string" ? txt : (inp ? inp.value : "");
+      var c = comando(v);
+      if (!c) return _send.apply(this, arguments);
+      if (inp) inp.value = "";
+      humana(c === 1);
+      if (typeof window.say === "function") {
+        window.say(c === 1 ? "Como desejar, senhor." : "Voltando à forma de esfera, senhor.");
+      }
+    };
   }
 
   // ---------- desenho ----------
@@ -102,7 +202,7 @@
     return true;
   }
 
-  var ang = 0, tph = 0, rot2 = 0, nivel = 0, last = 0, lentos = 0, passo = 1;
+  var ang = 0, tph = 0, rot2 = 0, nivel = 0, last = 0, lentos = 0, passo = 1, mm = 0;
   var cosX = Math.cos(0.35), sinX = Math.sin(0.35);
 
   function frame(ms) {
@@ -112,13 +212,16 @@
     var dt = last ? Math.min(0.05, t - last) : 0.016;
     last = t;
 
-    // se o aparelho estiver lento, usa metade dos pontos
     if (dt > 0.034) { lentos++; if (lentos > 90) passo = 2; } else if (lentos > 0) { lentos--; }
 
     var pensando = core.classList.contains("think");
     var modo = falando();
     var alvo = modo ? nivelAlvo(modo, t) : 0;
     nivel += (alvo - nivel) * 0.22;
+
+    // progresso da forma humana (2,4 s)
+    if (mm < humanaAlvo) mm = Math.min(humanaAlvo, mm + dt / 2.4);
+    else if (mm > humanaAlvo) mm = Math.max(humanaAlvo, mm - dt / 2.4);
 
     var calmo = reduzido ? 0.3 : 1;
     var vel = (0.6 + (pensando ? 1.4 : 0) + (modo ? 1.0 + 2.6 * nivel : 0)) * calmo;
@@ -129,16 +232,22 @@
     var amp = 0.05 + 0.17 * nivel + (pensando ? 0.04 : 0);
     var R = W * 0.27;
     var cx0 = W / 2, cy0 = H / 2;
-    var balx = Math.sin(tph * 0.8) * amp * R * 0.45;
-    var baly = Math.cos(tph * 0.65) * amp * R * 0.35;
-    var ca = Math.cos(ang), sa = Math.sin(ang);
+    var sway = 1 - mm * 0.8;
+    var balx = Math.sin(tph * 0.8) * amp * R * 0.45 * sway;
+    var baly = Math.cos(tph * 0.65) * amp * R * 0.35 * sway;
+
+    var angE = ang * (1 - mm) + Math.sin(t * 0.6) * 0.2 * mm;
+    var ca = Math.cos(angE), sa = Math.sin(angE);
+    var tilt = 0.35 * (1 - mm);
+    cosX = Math.cos(tilt); sinX = Math.sin(tilt);
+    var SC = 1.08;
+    var respira = Math.sin(tph * 0.9) * 0.012;
 
     ctx.clearRect(0, 0, W, H);
 
-    // luz no meio
     var g = ctx.createRadialGradient(cx0, cy0, 0, cx0, cy0, R * 1.25);
-    g.addColorStop(0, "rgba(190,245,255,0.55)");
-    g.addColorStop(0.25, "rgba(61,200,255,0.28)");
+    g.addColorStop(0, "rgba(190,245,255," + (0.55 - 0.3 * mm).toFixed(2) + ")");
+    g.addColorStop(0.25, "rgba(61,200,255," + (0.28 - 0.12 * mm).toFixed(2) + ")");
     g.addColorStop(1, "rgba(27,134,216,0)");
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = g;
@@ -161,47 +270,89 @@
     }
     ctx.stroke();
 
-    // pontos da esfera (se deforma como bolha)
+    // pontos: esfera -> busto, com a trilha subindo
     for (var i = 0; i < N; i += passo) {
       var p = P[i], x = p[0], y = p[1], z = p[2];
       var d = Math.sin(x * 2.3 + tph * 1.1) * Math.cos(y * 2.9 - tph * 0.9) +
               0.6 * Math.sin(z * 3.1 + tph * 1.4 + x);
       var rr = 1 + amp * d;
-      var x1 = (x * ca + z * sa) * rr;
-      var z1 = (-x * sa + z * ca) * rr;
-      var y1 = y * rr;
-      var y2 = y1 * cosX - z1 * sinX;
-      var z2 = y1 * sinX + z1 * cosX;
+      var bx = x * rr, by = y * rr, bz = z * rr;
+
+      var e = 0;
+      if (mm > 0) {
+        var li = Math.max(0, Math.min(1, mm * 1.7 - ORD[i] * 0.7));
+        e = li * li * (3 - 2 * li);
+        var tg = T[i];
+        var cu = Math.sin(li * 3.14159) * 0.9 * SIDE[i];
+        var jit = amp * 0.25 * d;
+        var txx = tg[0] * SC + jit, tyy = tg[1] * SC + respira, tzz = tg[2] + jit;
+        bx = bx * (1 - e) + txx * e + cu;
+        by = by * (1 - e) + tyy * e;
+        bz = bz * (1 - e) + tzz * e + cu * 0.4;
+      }
+
+      var x1 = bx * ca + bz * sa;
+      var z1 = -bx * sa + bz * ca;
+      var y2 = by * cosX - z1 * sinX;
+      var z2 = by * sinX + z1 * cosX;
       var pe = 3 / (3 - z2);
       var sx = cx0 + balx + x1 * R * pe;
       var sy = cy0 + baly + y2 * R * pe;
-      var f = (z2 + 1.2) / 2.4;
-      var al = 0.2 + 0.7 * f;
-      var tam = (0.9 + 1.3 * f) * dpr * (passo === 2 ? 1.3 : 1);
-      ctx.fillStyle = "rgba(" + Math.round(40 + 110 * f) + "," + Math.round(150 + 90 * f) + ",255," + al.toFixed(2) + ")";
+      var fz = (z2 + 1.2) / 2.4;
+      var f2 = fz * (1 - e) + 0.78 * e;
+      var al = 0.2 + 0.7 * f2;
+      var tam = (0.9 + 1.3 * f2) * dpr * (passo === 2 ? 1.3 : 1);
+      ctx.fillStyle = "rgba(" + Math.round(40 + 110 * f2) + "," + Math.round(150 + 90 * f2) + ",255," + al.toFixed(2) + ")";
       ctx.beginPath();
       ctx.arc(sx, sy, tam, 0, 6.2832);
       ctx.fill();
     }
 
-    // orbitas com cometa
+    // luz horizontal cruzando a figura + nucleo laranja
+    if (mm > 0.05) {
+      var ml = mm * mm;
+      var yl = cy0 + Math.sin(t * 0.7) * R * 0.95;
+      var lg = ctx.createLinearGradient(cx0 - R * 1.3, 0, cx0 + R * 1.3, 0);
+      lg.addColorStop(0, "rgba(150,240,255,0)");
+      lg.addColorStop(0.5, "rgba(170,245,255,0.8)");
+      lg.addColorStop(1, "rgba(150,240,255,0)");
+      ctx.globalAlpha = ml * 0.8;
+      ctx.fillStyle = lg;
+      ctx.fillRect(cx0 - R * 1.3, yl - dpr, R * 2.6, 2 * dpr);
+      ctx.globalAlpha = ml * 0.25;
+      ctx.fillRect(cx0 - R * 1.3, yl - 4 * dpr, R * 2.6, 8 * dpr);
+
+      var ncx = cx0 + balx * 0.2, ncy = cy0 + 0.42 * R * SC + baly * 0.2;
+      var pulso = 1 + 0.1 * Math.sin(t * 3) + 0.5 * nivel;
+      var nr = R * 0.3 * pulso;
+      var og = ctx.createRadialGradient(ncx, ncy, 0, ncx, ncy, nr);
+      og.addColorStop(0, "rgba(255,245,210,0.95)");
+      og.addColorStop(0.25, "rgba(255,160,50,0.75)");
+      og.addColorStop(1, "rgba(255,100,20,0)");
+      ctx.globalAlpha = ml;
+      ctx.fillStyle = og;
+      ctx.fillRect(ncx - nr, ncy - nr, nr * 2, nr * 2);
+      ctx.globalAlpha = 1;
+    }
+
+    // orbitas com cometa (somem aos poucos na forma humana)
+    ctx.globalAlpha = 1 - 0.75 * mm;
     for (var j = 0; j < O.length; j++) {
       var o = O[j];
       o.u += dt * o.v * (1 + (modo ? 0.8 * nivel : 0) + (pensando ? 1 : 0)) * calmo;
       var oy = o.ty + ang * o.sp * 3;
       var cr = Math.cos(o.roll), sr = Math.sin(o.roll);
-      var ctx_ = Math.cos(o.tx), stx = Math.sin(o.tx);
+      var cOx = Math.cos(o.tx), sOx = Math.sin(o.tx);
       var coy = Math.cos(oy), soy = Math.sin(oy);
       var pos = function (u) {
         var px = o.a * Math.cos(u), py = o.b * Math.sin(u);
         var qx = px * cr - py * sr, qy = px * sr + py * cr;
-        var qz = qy * stx, qy2 = qy * ctx_;
+        var qz = qy * sOx, qy2 = qy * cOx;
         var rx = qx * coy + qz * soy, rz = -qx * soy + qz * coy;
         var ry = qy2 * cosX - rz * sinX, rz2 = qy2 * sinX + rz * cosX;
         var pe2 = 3 / (3 - rz2);
         return [cx0 + balx + rx * R * pe2, cy0 + baly + ry * R * pe2, rz2];
       };
-      // trilho fraco
       ctx.strokeStyle = "rgba(61,232,255,0.14)";
       ctx.lineWidth = Math.max(1, dpr * 0.7);
       ctx.beginPath();
@@ -210,7 +361,6 @@
         if (q === 0) ctx.moveTo(pq[0], pq[1]); else ctx.lineTo(pq[0], pq[1]);
       }
       ctx.stroke();
-      // cauda do cometa
       var prev = pos(o.u);
       for (var s3 = 1; s3 <= 26; s3++) {
         var cur = pos(o.u - s3 * 0.055);
@@ -234,6 +384,7 @@
       ctx.fill();
     }
 
+    ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
   }
 
