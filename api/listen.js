@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
         { text: "Transcreva este audio em portugues do Brasil. Responda somente com o texto falado, sem comentarios. Se nao houver fala clara, responda apenas um ponto." },
         { inline_data: { mime_type: mime, data: audio } }
       ] }],
-      generationConfig: { maxOutputTokens: 80, temperature: 0 }
+      generationConfig: { maxOutputTokens: 80 }
     };
     if (fast) p.generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
     return JSON.stringify(p);
