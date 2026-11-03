@@ -43,11 +43,13 @@ module.exports = async (req, res) => {
           return res.status(200).json({ text: text });
         }
         lastError = d.error && d.error.message ? d.error.message : "Erro da API.";
+        console.log("LISTEN erro status=" + r.status + " modelo=" + model + " rapido=" + fast + " msg=" + String(lastError).slice(0, 300));
         if (r.status === 400 && fast) continue;
         break;
       } catch (e) {
         clearTimeout(timer);
         lastError = "Falha ou demora ao consultar a API.";
+        console.log("LISTEN falha modelo=" + model + " rapido=" + fast + " tipo=" + (e && e.name ? e.name : "?"));
         break;
       }
     }
