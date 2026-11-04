@@ -1,3 +1,10 @@
+function diaBR(s) {
+  if (!s) return '';
+  var d = new Date(s);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
@@ -40,12 +47,18 @@ module.exports = async function handler(req, res) {
     }
 
     const lista = Array.isArray(oj.results) ? oj.results : [];
-    let pagos = 0;
-    let valorPagos = 0;
+    const hoje = diaBR(new Date().toISOString());
+
+    let pedidosHoje = 0;
+    let pagosHoje = 0;
+    let valorHoje = 0;
     lista.forEach(function (p) {
+      const dia = diaBR(p.paidAt || p.paid_at || p.createdAt || p.created_at);
+      if (dia !== hoje) return;
+      pedidosHoje += 1;
       if (String(p.status || '').toLowerCase() === 'paid') {
-        pagos += 1;
-        valorPagos += Number(p.amount) || 0;
+        pagosHoje += 1;
+        valorHoje += Number(p.amount) || 0;
       }
     });
 
@@ -60,10 +73,12 @@ module.exports = async function handler(req, res) {
 
     res.status(200).json({
       ok: true,
-      total: oj.count || 0,
-      pagos: pagos,
-      valorPagos: valorPagos,
-      ultimos: ultimos
+      periodo: 'hoje (' + hoje + ', horario de Brasilia)',
+      total: pedidosHoje,
+      pagos: pagosHoje,
+      valorPagos: valorHoje,
+      ultimos: ultimos,
+      aviso: lista.length >= 100 ? 'lista limitada a 100 pedidos recentes' : ''
     });
   } catch (e) {
     res.status(500).json({ ok: false, erro: 'falha inesperada' });
