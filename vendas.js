@@ -25,7 +25,24 @@
       return 'R$ ' + Number(v || 0).toFixed(2);
     }
   }
+
+  var RX_CAKTO = /\b(cakto|cackto|kakto|cacto|cachto|caquito|catko|kactu)\b/;
+  var RX_VENDA = /\b(venda|vendas|vendi|vendeu|faturei|faturamento|pedido|pedidos|compra|compras|comprou|ganhei|resultado|resultados)\b/;
+  var RX_TEMPO = /\b(hoje|quanto|quantas|quantos)\b/;
+  var RX_NAO = /\b(ideia|ideias|plano|estrategia|dica|dicas|criar|configurar|tutorial|aumentar|melhorar|mais|escalar|aprender|funciona|integrar)\b/;
+  var RX_SIMPLES = /^(quantas vendas( eu)?( fiz| tive)?|quanto( eu)? (vendi|faturei|ganhei)|(minhas |ver |as |como estao as |como foram as )?vendas)( de hoje| hoje)?$/;
+
+  function ehConsulta(v) {
+    if (!v || v.split(' ').length > 10) return false;
+    if (RX_SIMPLES.test(v)) return true;
+    if (!RX_CAKTO.test(v)) return false;
+    if (RX_NAO.test(v)) return false;
+    if (/\bcomo\b/.test(v) && !/\bcomo (estao|esta|foram|foi)\b/.test(v)) return false;
+    return RX_VENDA.test(v) || RX_TEMPO.test(v) || /\bcomo (estao|esta|foram|foi)\b/.test(v) || v.split(' ').length <= 3;
+  }
+
   function consultar() {
+    falar('Consultando a Cakto, senhor…');
     pino()
       .then(function (pin) {
         return fetch('/api/cakto', {
@@ -44,20 +61,22 @@
           return;
         }
         if (!j.ok) {
-          falar('Não consegui consultar a Cakto, senhor.');
+          falar('Não consegui consultar a Cakto' + (j.etapa ? ' (etapa: ' + j.etapa + ')' : '') + ', senhor.');
           return;
         }
         if (!j.total) {
-          falar('Senhor, ainda não há nenhuma venda registrada na Cakto.');
+          falar('Senhor, hoje ainda não há nenhum pedido na Cakto.');
           return;
         }
         if (!j.pagos) {
-          falar('Senhor, há ' + j.total + ' pedidos, mas nenhum pago até o momento.');
+          falar('Senhor, hoje há ' + j.total + (j.total === 1 ? ' pedido' : ' pedidos') + ' na Cakto, mas nenhum pago até o momento.');
           return;
         }
-        var msg = 'Senhor, até o momento há ' + dinheiro(j.valorPagos) + ' em vendas e ' +
+        var msg = 'Senhor, hoje há ' + dinheiro(j.valorPagos) + ' em vendas pagas e ' +
           j.pagos + (j.pagos === 1 ? ' compra.' : ' compras.');
-        if (j.total > 100) msg += ' Considerando os 100 pedidos mais recentes.';
+        var pend = j.total - j.pagos;
+        if (pend > 0) msg += ' Outros ' + pend + (pend === 1 ? ' pedido ainda não foi pago.' : ' pedidos ainda não foram pagos.');
+        if (j.aviso) msg += ' Atenção: ' + j.aviso + '.';
         falar(msg);
       })
       .catch(function () {
@@ -67,7 +86,7 @@
   function tratar(texto) {
     var v = norm(texto);
     if (!v) return false;
-    if (/^(vendas|minhas vendas|ver vendas|cakto|cakto vendas|vendas da cakto|como estao as vendas|como esta a cakto|quanto vendi|quanto eu vendi)$/.test(v)) {
+    if (ehConsulta(v)) {
       consultar();
       return true;
     }
