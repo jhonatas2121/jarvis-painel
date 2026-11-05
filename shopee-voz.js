@@ -1,7 +1,7 @@
 (function () {
   function norm(s) {
     return String(s || '').toLowerCase().normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '').replace(/[!?;:]/g, ' ')
+      .replace(/[\u0300-\u036f]/g, '').replace(/[!?;:,]/g, ' ')
       .replace(/(\d),(\d)/g, '$1.$2').replace(/\s+/g, ' ').trim()
       .replace(/^(jarvis|jarvi|javis)[ ,]*/, '');
   }
@@ -13,9 +13,10 @@
   var RP = new RegExp('\\b(?:ate|abaixo de|menos de) ' + N + '(?: reais)?');
   var RN = new RegExp('nota (?:acima de|maior que|de) ' + N);
   var RT = /top (\d+)|(\d+) (?:produtos|achadinhos)/;
+  var CMD = /procur[ae] (?:para|pra) mim (?:o |os )?(?:produtos?|itens?|achadinhos?)(?: (?:de|do|da|dos|das)\b)? ?(.*)/;
   var GATI = /\b(produtos?|achadinhos?|afiliados?|comissao)\b|o que (vender|divulgar|rodar)/;
   var NAO = /\b(ideias?|criar|curso|digital|como|tutorial|cakto|vendas?)\b/;
-  var STOP = /\b(produtos?|achadinhos?|afiliados?|comissao|boa|bom|com|de|da|do|me|acha|ache|mostra|mostre|busca|busque|procure|pesquisa|quais|quero|ver|o|que|eu|posso|divulgar|vender|rodar|para|pra|uns|uma|um|os|as|em|e|top|reais|nota)\b/g;
+  var STOP = /\b(produtos?|achadinhos?|afiliados?|comissao|boa|bom|com|de|da|do|me|mim|acha|ache|mostra|mostre|busca|busque|procure|pesquisa|quais|quero|ver|o|que|eu|posso|divulgar|vender|rodar|para|pra|uns|uma|um|os|as|em|e|top|reais|nota)\b/g;
 
   function tira(st, rx, nome) {
     var m = st.v.match(rx);
@@ -25,13 +26,18 @@
   }
   window.shopeeTratar = function (texto) {
     var st = { v: norm(texto), p: [] };
-    var v = st.v;
-    if (!v || v.split(' ').length > 14) return false;
-    if (!GATI.test(v) || NAO.test(v)) return false;
+    var c = st.v.match(CMD);
+    if (c) st.v = c[1];
+    else {
+      var v = st.v;
+      if (!v || v.split(' ').length > 14) return false;
+      if (!GATI.test(v) || NAO.test(v)) return false;
+    }
     tira(st, RC, 'com'); tira(st, RP, 'preco');
     tira(st, RN, 'nota'); tira(st, RT, 'top');
-    var q = st.v.replace(STOP, ' ').replace(/[^a-z ]/g, ' ')
-      .replace(/\s+/g, ' ').trim();
+    var q = (c ? st.v : st.v.replace(STOP, ' '))
+      .replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/ (com|e)$/, '');
     if (!q) { falar('Qual assunto, senhor?'); return true; }
     st.p.push('q=' + encodeURIComponent(q));
     falar('Buscando ' + q + ', senhor…');
