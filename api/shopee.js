@@ -10,8 +10,10 @@ module.exports = async (req, res) => {
     }
     const x = req.query;
     const q = String(x.q || 'natal');
+    const extra = x.extra === '1';
     const f = {
-      minCom: num(x.com, 8),
+      soExtra: extra,
+      minCom: num(x.com, extra ? 0 : 8),
       minNota: num(x.nota, 4.7),
       minVendas: num(x.vendas, 100),
       maxPreco: num(x.preco, 1000000)
