@@ -7,6 +7,7 @@ function num(v, padrao) {
 
 async function buscar(appId, secret, q, sort, page) {
   const campos = 'itemId productName price commissionRate ' +
+    'sellerCommissionRate shopeeCommissionRate ' +
     'sales ratingStar shopName offerLink imageUrl';
   const query = '{productOfferV2(keyword:' + JSON.stringify(q) +
     ',sortType:' + sort + ',page:' + page + ',limit:50)' +
