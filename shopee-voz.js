@@ -13,6 +13,7 @@
   var RP = new RegExp('\\b(?:ate|abaixo de|menos de) ' + N + '(?: reais)?');
   var RN = new RegExp('nota (?:acima de|maior que|de) ' + N);
   var RT = /top (\d+)|(\d+) (?:produtos|achadinhos)/;
+  var REX = /\bcomiss(?:ao|oes) extras?\b/;
   var CMD = /procur[ae] (?:para|pra) mim (?:o |os )?(?:produtos?|itens?|achadinhos?)(?: (?:de|do|da|dos|das)\b)? ?(.*)/;
   var GATI = /\b(produtos?|achadinhos?|afiliados?|comissao)\b|o que (vender|divulgar|rodar)/;
   var NAO = /\b(ideias?|criar|curso|digital|como|tutorial|cakto|vendas?)\b/;
@@ -33,6 +34,8 @@
       if (!v || v.split(' ').length > 14) return false;
       if (!GATI.test(v) || NAO.test(v)) return false;
     }
+    var ex = REX.test(st.v);
+    if (ex) { st.v = st.v.replace(REX, ' '); st.p.push('extra=1'); }
     tira(st, RC, 'com'); tira(st, RP, 'preco');
     tira(st, RN, 'nota'); tira(st, RT, 'top');
     var q = (c ? st.v : st.v.replace(STOP, ' '))
@@ -40,7 +43,7 @@
       .replace(/ (com|e)$/, '');
     if (!q) { falar('Qual assunto, senhor?'); return true; }
     st.p.push('q=' + encodeURIComponent(q));
-    falar('Buscando ' + q + ', senhor…');
+    falar('Buscando ' + q + (ex ? ', só comissão extra' : '') + ', senhor…');
     fetch('/api/shopee?' + st.p.join('&'))
       .then(function (r) { return r.json(); })
       .then(function (j) {
