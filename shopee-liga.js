@@ -1,7 +1,7 @@
 (function () {
   ['shopee-cartao.js', 'shopee-voz.js'].forEach(function (f) {
     var s = document.createElement('script');
-    s.src = '/' + f + '?v=1';
+    s.src = '/' + f + '?v=2';
     document.head.appendChild(s);
   });
   function interceptar(e) {
