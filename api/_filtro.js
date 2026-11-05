@@ -3,9 +3,11 @@ const { num } = require('./_busca');
 function avaliar(p, f) {
   const preco = num(p.price, 0);
   const taxa = num(p.commissionRate, 0);
+  const extra = num(p.sellerCommissionRate, 0);
   const nota = num(p.ratingStar, 0);
   const vendas = Number(p.sales) || 0;
   const ganho = preco * taxa;
+  if (f.soExtra && extra <= 0) return null;
   if (taxa * 100 < f.minCom) return null;
   if (nota < f.minNota) return null;
   if (vendas < f.minVendas) return null;
@@ -20,6 +22,7 @@ function avaliar(p, f) {
     nome: p.productName,
     preco: preco,
     comissaoPct: Math.round(taxa * 1000) / 10,
+    extraPct: Math.round(extra * 1000) / 10,
     ganhoPorVenda: Math.round(ganho * 100) / 100,
     vendas: vendas,
     nota: nota,
