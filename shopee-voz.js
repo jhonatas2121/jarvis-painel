@@ -23,30 +23,3 @@
     st.p.push(nome + '=' + (m[1] || m[2]));
     st.v = st.v.replace(m[0], ' ');
   }
-  window.shopeeTratar = function (texto) {
-    var st = { v: norm(texto), p: [] };
-    var v = st.v;
-    if (!v || v.split(' ').length > 14) return false;
-    if (!GATI.test(v) || NAO.test(v)) return false;
-    tira(st, RC, 'com'); tira(st, RP, 'preco');
-    tira(st, RN, 'nota'); tira(st, RT, 'top');
-    var q = st.v.replace(STOP, ' ').replace(/[^a-z ]/g, ' ')
-      .replace(/\s+/g, ' ').trim();
-    if (!q) { falar('Qual assunto, senhor?'); return true; }
-    st.p.push('q=' + encodeURIComponent(q));
-    falar('Buscando ' + q + ', senhor…');
-    fetch('/api/shopee?' + st.p.join('&'))
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        var l = j.produtos || [];
-        if (!l.length) { falar('Não achei produtos com esses filtros, senhor.'); return; }
-        window.shopeeCartoes(l, q);
-        var b = l[0];
-        falar('Senhor, achei ' + l.length + ' produtos. O melhor paga ' +
-          b.comissaoPct + ' por cento, cerca de ' +
-          b.ganhoPorVenda.toFixed(2).replace('.', ',') + ' reais por venda.');
-      })
-      .catch(function () { falar('Não consegui buscar na Shopee, senhor.'); });
-    return true;
-  };
-})();
