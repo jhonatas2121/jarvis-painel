@@ -1,31 +1,5 @@
-const crypto = require('crypto');
-
-async function buscar(appId, secret, q, sort, page) {
-  const query = '{productOfferV2(keyword:' + JSON.stringify(q) +
-    ',sortType:' + sort + ',page:' + page + ',limit:50)' +
-    '{nodes{itemId productName price commissionRate sales ratingStar shopName offerLink imageUrl}}}';
-  const payload = JSON.stringify({ query: query });
-  const ts = Math.floor(Date.now() / 1000);
-  const sig = crypto.createHash('sha256')
-    .update(appId + ts + payload + secret).digest('hex');
-  const r = await fetch('https://open-api.affiliate.shopee.com.br/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'SHA256 Credential=' + appId +
-        ', Timestamp=' + ts + ', Signature=' + sig
-    },
-    body: payload
-  });
-  const d = await r.json();
-  if (d.errors) throw new Error(JSON.stringify(d.errors));
-  return (d.data && d.data.productOfferV2 && d.data.productOfferV2.nodes) || [];
-}
-
-function num(v, padrao) {
-  const n = parseFloat(v);
-  return isNaN(n) ? padrao : n;
-}
+const { buscar, num } = require('./_busca');
+const { avaliar } = require('./_filtro');
 
 module.exports = async (req, res) => {
   try {
@@ -34,12 +8,15 @@ module.exports = async (req, res) => {
     if (!appId || !secret) {
       return res.status(500).json({ erro: 'faltam variaveis' });
     }
-    const q = String(req.query.q || 'natal');
-    const minCom = num(req.query.com, 8);
-    const minNota = num(req.query.nota, 4.7);
-    const minVendas = num(req.query.vendas, 100);
-    const maxPreco = num(req.query.preco, 1000000);
-    const top = Math.min(num(req.query.top, 10), 30);
+    const x = req.query;
+    const q = String(x.q || 'natal');
+    const f = {
+      minCom: num(x.com, 8),
+      minNota: num(x.nota, 4.7),
+      minVendas: num(x.vendas, 100),
+      maxPreco: num(x.preco, 1000000)
+    };
+    const top = Math.min(num(x.top, 10), 30);
 
     const buscas = [];
     [2, 5].forEach(function (sort) {
@@ -51,4 +28,22 @@ module.exports = async (req, res) => {
 
     const vistos = {};
     const lista = [];
-    resultados.forEa
+    resultados.forEach(function (nodes) {
+      nodes.forEach(function (p) {
+        if (vistos[p.itemId]) return;
+        vistos[p.itemId] = true;
+        const item = avaliar(p, f);
+        if (item) lista.push(item);
+      });
+    });
+
+    lista.sort(function (a, b) { return b.score - a.score; });
+    res.status(200).json({
+      consulta: q,
+      total: lista.length,
+      produtos: lista.slice(0, top)
+    });
+  } catch (e) {
+    res.status(500).json({ erro: String(e) });
+  }
+};
