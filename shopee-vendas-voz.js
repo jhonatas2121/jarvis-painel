@@ -32,23 +32,36 @@
   function pedidos(n) {
     return n + (n === 1 ? ' pedido' : ' pedidos');
   }
+  function dataAtras(k) {
+    return new Date(Date.now() - 3 * 3600 * 1000 - k * 86400000)
+      .toISOString().slice(0, 10);
+  }
 
   var RX_SHOPEE = /\b(shopee|shopi|shope|shoppe|shoppee|chopee|xopi|xope)\b/;
   var RX_VENDA = /\b(venda|vendas|vendi|vendeu|faturei|pedido|pedidos|ganhei|resultado|resultados)\b/;
   var RX_NAO = /\b(ideia|ideias|plano|estrategia|dica|dicas|criar|configurar|tutorial|aumentar|melhorar|escalar|aprender|funciona|integrar|produto|produtos|procure|procura|achadinhos)\b/;
 
   function ehConsulta(v) {
-    if (!v || v.split(' ').length > 12) return false;
+    if (!v || v.split(' ').length > 14) return false;
     if (!RX_SHOPEE.test(v)) return false;
     if (RX_NAO.test(v)) return false;
     return RX_VENDA.test(v);
   }
 
-  function consultar() {
+  function periodo(v) {
+    if (/\banteontem\b/.test(v)) return { tipo: 'dia', k: 2, nome: 'anteontem' };
+    if (/\bontem\b/.test(v)) return { tipo: 'dia', k: 1, nome: 'ontem' };
+    if (/\b(mes|30 dias|trinta dias)\b/.test(v)) return { tipo: 'mes' };
+    return { tipo: 'resumo' };
+  }
+
+  function consultar(v) {
+    var per = periodo(v);
+    var dias = per.tipo === 'mes' ? 30 : 7;
     falar('Consultando a Shopee, senhor…');
     pino()
       .then(function (pin) {
-        return fetch('/api/shopee-vendas?pin=' + encodeURIComponent(pin || ''));
+        return fetch('/api/shopee-vendas?dias=' + dias + '&pin=' + encodeURIComponent(pin || ''));
       })
       .then(function (r) {
         return r.json().then(function (j) { return { status: r.status, j: j }; });
@@ -63,19 +76,40 @@
           falar('Não consegui consultar a Shopee, senhor.');
           return;
         }
-        var dias = Object.keys(j.por_dia || {}).sort();
-        if (!dias.length) {
-          falar('Senhor, não há vendas da Shopee nos últimos ' + (j.dias || 7) + ' dias.');
+        var porDia = j.por_dia || {};
+        var lista = Object.keys(porDia).sort();
+
+        if (per.tipo === 'dia') {
+          var data = dataAtras(per.k);
+          var d = porDia[data];
+          if (d) {
+            falar('Senhor, ' + per.nome + ', dia ' + dataBR(data) + ', foram ' +
+              pedidos(d.pedidos) + ' e ' + dinheiro(d.comissao) +
+              ' de comissão estimada na Shopee.');
+          } else {
+            falar('Senhor, não aparece nenhuma venda da Shopee em ' + dataBR(data) +
+              ' no painel. A Shopee só mostra as vendas no dia seguinte.');
+          }
           return;
         }
-        var ult = dias[dias.length - 1];
-        var d = j.por_dia[ult];
-        var msg = 'Senhor, no dia mais recente do painel da Shopee, ' + dataBR(ult) +
-          ', foram ' + pedidos(d.pedidos) + ' e ' + dinheiro(d.comissao) +
-          ' de comissão estimada.';
-        msg += ' Nos últimos ' + (j.dias || 7) + ' dias, ' + pedidos(j.pedidos_validos) +
-          ' e ' + dinheiro(j.comissao_estimada) + ' estimados.';
-        falar(msg);
+
+        if (!lista.length) {
+          falar('Senhor, não há vendas da Shopee nos últimos ' + dias + ' dias.');
+          return;
+        }
+
+        if (per.tipo === 'mes') {
+          falar('Senhor, nos últimos 30 dias, foram ' + pedidos(j.pedidos_validos) +
+            ' e ' + dinheiro(j.comissao_estimada) + ' de comissão estimada na Shopee.');
+          return;
+        }
+
+        var ult = lista[lista.length - 1];
+        var u = porDia[ult];
+        falar('Senhor, no dia mais recente do painel da Shopee, ' + dataBR(ult) +
+          ', foram ' + pedidos(u.pedidos) + ' e ' + dinheiro(u.comissao) +
+          ' de comissão estimada. Nos últimos 7 dias, ' + pedidos(j.pedidos_validos) +
+          ' e ' + dinheiro(j.comissao_estimada) + ' estimados.');
       })
       .catch(function () {
         falar('Não consegui consultar a Shopee, senhor.');
@@ -85,7 +119,7 @@
     var v = norm(texto);
     if (!v) return false;
     if (ehConsulta(v)) {
-      consultar();
+      consultar(v);
       return true;
     }
     return false;
