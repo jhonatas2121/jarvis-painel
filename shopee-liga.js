@@ -1,5 +1,5 @@
 (function () {
-  ['shopee-cartao.js', 'shopee-voz.js'].forEach(function (f) {
+  ['shopee-cartao.js', 'shopee-voz.js', 'shopee-vendas-voz.js'].forEach(function (f) {
     var s = document.createElement('script');
     s.src = '/' + f + '?v=2';
     document.head.appendChild(s);
