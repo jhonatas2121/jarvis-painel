@@ -51,13 +51,17 @@
   function periodo(v) {
     if (/\banteontem\b/.test(v)) return { tipo: 'dia', k: 2, nome: 'anteontem' };
     if (/\bontem\b/.test(v)) return { tipo: 'dia', k: 1, nome: 'ontem' };
-    if (/\b(mes|30 dias|trinta dias)\b/.test(v)) return { tipo: 'mes' };
+    if (/\b(30 dias|trinta dias)\b/.test(v)) return { tipo: 'trinta' };
+    if (/\b(mes|mensal)\b/.test(v)) return { tipo: 'mes' };
     return { tipo: 'resumo' };
   }
 
   function consultar(v) {
     var per = periodo(v);
-    var dias = per.tipo === 'mes' ? 30 : 7;
+    var hoje = dataAtras(0);
+    var dias = 7;
+    if (per.tipo === 'trinta') dias = 30;
+    if (per.tipo === 'mes') dias = Math.min(parseInt(hoje.slice(8, 10), 10), 30);
     falar('Consultando a Shopee, senhor…');
     pino()
       .then(function (pin) {
@@ -93,12 +97,32 @@
           return;
         }
 
+        if (per.tipo === 'mes') {
+          var pref = hoje.slice(0, 7);
+          var tp = 0;
+          var tc = 0;
+          var ultimo = '';
+          lista.forEach(function (dt) {
+            if (dt.slice(0, 7) !== pref) return;
+            tp += porDia[dt].pedidos;
+            tc += porDia[dt].comissao;
+            ultimo = dt;
+          });
+          if (!tp) {
+            falar('Senhor, ainda não aparecem vendas da Shopee neste mês no painel.');
+            return;
+          }
+          falar('Senhor, neste mês, até o dia ' + dataBR(ultimo) + ', foram ' +
+            pedidos(tp) + ' e ' + dinheiro(tc) + ' de comissão estimada na Shopee.');
+          return;
+        }
+
         if (!lista.length) {
           falar('Senhor, não há vendas da Shopee nos últimos ' + dias + ' dias.');
           return;
         }
 
-        if (per.tipo === 'mes') {
+        if (per.tipo === 'trinta') {
           falar('Senhor, nos últimos 30 dias, foram ' + pedidos(j.pedidos_validos) +
             ' e ' + dinheiro(j.comissao_estimada) + ' de comissão estimada na Shopee.');
           return;
