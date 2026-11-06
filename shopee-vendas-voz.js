@@ -32,6 +32,13 @@
   function pedidos(n) {
     return n + (n === 1 ? ' pedido' : ' pedidos');
   }
+  function produtos(n) {
+    return n + (n === 1 ? ' produto' : ' produtos');
+  }
+  function resumoTxt(p, i, v, c) {
+    return pedidos(p) + ', ' + produtos(i) + ', ' + dinheiro(v) +
+      ' em vendas e ' + dinheiro(c) + ' de comissão estimada';
+  }
   function dataAtras(k) {
     return new Date(Date.now() - 3 * 3600 * 1000 - k * 86400000)
       .toISOString().slice(0, 10);
@@ -88,8 +95,7 @@
           var d = porDia[data];
           if (d) {
             falar('Senhor, ' + per.nome + ', dia ' + dataBR(data) + ', foram ' +
-              pedidos(d.pedidos) + ' e ' + dinheiro(d.comissao) +
-              ' de comissão estimada na Shopee.');
+              resumoTxt(d.pedidos, d.itens, d.valor, d.comissao) + ' na Shopee.');
           } else {
             falar('Senhor, não aparece nenhuma venda da Shopee em ' + dataBR(data) +
               ' no painel. A Shopee só mostra as vendas no dia seguinte.');
@@ -100,11 +106,15 @@
         if (per.tipo === 'mes') {
           var pref = hoje.slice(0, 7);
           var tp = 0;
+          var ti = 0;
+          var tv = 0;
           var tc = 0;
           var ultimo = '';
           lista.forEach(function (dt) {
             if (dt.slice(0, 7) !== pref) return;
             tp += porDia[dt].pedidos;
+            ti += porDia[dt].itens;
+            tv += porDia[dt].valor;
             tc += porDia[dt].comissao;
             ultimo = dt;
           });
@@ -113,7 +123,7 @@
             return;
           }
           falar('Senhor, neste mês, até o dia ' + dataBR(ultimo) + ', foram ' +
-            pedidos(tp) + ' e ' + dinheiro(tc) + ' de comissão estimada na Shopee.');
+            resumoTxt(tp, ti, tv, tc) + ' na Shopee.');
           return;
         }
 
@@ -123,17 +133,18 @@
         }
 
         if (per.tipo === 'trinta') {
-          falar('Senhor, nos últimos 30 dias, foram ' + pedidos(j.pedidos_validos) +
-            ' e ' + dinheiro(j.comissao_estimada) + ' de comissão estimada na Shopee.');
+          falar('Senhor, nos últimos 30 dias, foram ' +
+            resumoTxt(j.pedidos_validos, j.itens, j.valor_vendido, j.comissao_estimada) +
+            ' na Shopee.');
           return;
         }
 
         var ult = lista[lista.length - 1];
         var u = porDia[ult];
         falar('Senhor, no dia mais recente do painel da Shopee, ' + dataBR(ult) +
-          ', foram ' + pedidos(u.pedidos) + ' e ' + dinheiro(u.comissao) +
-          ' de comissão estimada. Nos últimos 7 dias, ' + pedidos(j.pedidos_validos) +
-          ' e ' + dinheiro(j.comissao_estimada) + ' estimados.');
+          ', foram ' + resumoTxt(u.pedidos, u.itens, u.valor, u.comissao) +
+          '. Nos últimos 7 dias, foram ' +
+          resumoTxt(j.pedidos_validos, j.itens, j.valor_vendido, j.comissao_estimada) + '.');
       })
       .catch(function () {
         falar('Não consegui consultar a Shopee, senhor.');
