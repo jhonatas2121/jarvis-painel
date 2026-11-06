@@ -58,6 +58,10 @@
   function run(cmd) {
     wake = false;
     clearTimeout(wakeTimer);
+    // CORREÇÃO: normaliza variações de "Shopee" que o reconhecimento de voz escreve diferente
+    cmd = cmd
+      .replace(/(?<![a-z])(?:sh|ch|x)o?p+(?:e+|i+|y)(?![a-z])/gi, 'Shopee')
+      .replace(/show ?pe+/gi, 'Shopee');
     if (core) core.classList.add('think');
     inp.value = cmd;
     inp.dispatchEvent(new Event('input', { bubbles: true }));
